@@ -271,6 +271,33 @@ body.window .top.inrow .actions { margin-left: 0; }
 /* and when even that doesn't fit, the tabs scroll sideways rather than push the page wider */
 .top.packed .seg { min-width: 0; flex: 0 1 auto; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .top.packed .seg::-webkit-scrollbar { display: none; }
+/* Windows, and magpie web: the header keeps to the page's column, so its
+   icons sit over the right edge of the list, not at the window's; the tabs
+   on a track of their own, the thumb springing from tab to tab, and the
+   tabs coming in one after another as the window opens. :where() keeps
+   these as weak as the rules above, so a narrow header still tightens */
+:where(body.window:not(.mac):not(.linux)) .top { padding: 0 max(16px, calc(50% - 600px)); }
+:where(body.window:not(.mac):not(.linux)) .seg { background: var(--seg-track); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 7%, transparent); }
+:where(body.window:not(.mac):not(.linux)) .seg > .thumb { transition: transform .5s cubic-bezier(.3, 1.3, .5, 1), width .5s cubic-bezier(.3, 1.3, .5, 1), opacity .15s; }
+:where(body.window:not(.mac):not(.linux)) .seg button { height: 26px; padding: 0 14px; font-size: 13px; transition: color .18s var(--ease), background-color .18s var(--ease), transform .14s var(--ease); }
+:where(body.window:not(.mac):not(.linux)) .seg button:hover:not(.on) { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+:where(body.window:not(.mac):not(.linux)) .top .icon { transition: background .12s, color .12s, transform .14s var(--ease); }
+:where(body.window:not(.mac):not(.linux)) .top .icon:active { transform: scale(.9); }
+:where(body.window:not(.mac):not(.linux)) .top .icon svg { transition: transform .5s cubic-bezier(.3, 1.3, .5, 1); }
+:where(body.window:not(.mac):not(.linux)) #prefs:hover svg { transform: rotate(60deg); }
+@media (prefers-reduced-motion: no-preference) {
+  :where(body.window:not(.mac):not(.linux)) .seg button { animation: tab-in .5s var(--ease) backwards; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(2) { animation-delay: 30ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(3) { animation-delay: 60ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(4) { animation-delay: 90ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(5) { animation-delay: 120ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(6) { animation-delay: 150ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(7) { animation-delay: 180ms; }
+  :where(body.window:not(.mac):not(.linux)) .seg button:nth-of-type(8) { animation-delay: 210ms; }
+  /* the thumb once the tabs are in */
+  :where(body.window:not(.mac):not(.linux)) .seg > .thumb { animation: fade-in .3s .3s backwards; }
+}
+@keyframes tab-in { from { opacity: 0; transform: translateY(-6px); } }
 /* magpie web on a phone, or a browser as narrow (phoneWeb): the magpie and
    the icons in a row, the tabs at their size in a row of their own under
    them, sliding sideways when they don't fit (they were squeezed into the
