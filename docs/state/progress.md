@@ -104,3 +104,27 @@
 - 正式版：重新编译（`main.version=e6c7bd9-dirty`）装到 `%LOCALAPPDATA%\Programs\magpie\magpie.exe` 并以 `tray` 启动，3425 恢复；旧 exe 移到 `backups/magpie.exe-20261008-2019`
 - 影响文件：`internal/gateway/gateway.go`, `internal/gateway/prompt_cache_test.go`
 - 下一步：用户再跑 sonnet 子代理，从 `usage.jsonl` 看 laoban 的命中率；代码改动（导航栏、白框、dev 脚本、缓存 key）都还没提交
+
+## 2026-10-08 21:44 +08:00 | claude-opus-5-5 | 测试替身在 Windows 上找不到，gateway 测试跑了本机真装的 CLI
+- 现象：整包 `go test ./internal/gateway/` 在本机 895s，3 个失败。上一条把其中两个代理测试归因于 Windows 系统代理，**这个判断是错的**，实际原因如下
+- 查到的原因（都实际复现过）：
+  1. `TestKeyProxy`：假的全局代理收到 3 个 `CONNECT api2.cursor.sh:443`。抓调用栈：`provider.Save` → `Accounts()` → `cursorAccount()` → `askCursorStatus()`（`provider/cursor.go:91`）启动了本机真装的 `C:\Users\guica\AppData\Local\cursor-agent\cursor-agent.cmd`，它继承测试的代理设置去连 Cursor。根因：`testenv.StandIns` 只写无扩展名的 `#!/bin/sh` 替身，Windows 的 `exec.LookPath` 按 PATHEXT 找，跳过它找到 PATH 后面的真程序。`inertTools` 早已为 Windows 补写 `.bat`，但 `gateway/main_test.go:65` 直接调 `StandIns`，没补。本机受影响的真程序：`claude.exe`、`codex.cmd`、`cursor-agent.cmd`、`grok.exe`；CI 的 Windows 机器上没装这些，所以看不出来
+  2. `TestPluginModelListThroughAccountProxy`：测试用 PATH 里的 bun（本机 1.3.11，低于 magpie 要求的最低版本 1.4.2，CI 也用 1.4.2）。1.3.11 发给代理的请求行是 `GET http://models.invalid:80/list`，1.4.2 是 `GET http://models.invalid/list`；测试的假代理只认不带端口的主机名。下载官方 1.4.2（按 `plugin/bun.go` 里的 SHA-256 校验）放到 PATH 前面后测试通过
+  3. `TestSweepBridgeProjectsTakesOnlyTheBridgesFolders`：本机没开开发者模式，当前用户没有 `SeCreateSymbolicLinkPrivilege`，`os.Symlink` 失败；仓库里至少 5 个同类测试在这种情况下 `t.Skip`，只有它 `t.Fatal`
+  4. 另发现 `testenv` 的 `TestOffline` 在本机失败：`HTTPS_PROXY=http://127.0.0.1:<port>`，`Offline()` 只拦非本机的连接，请求经本机代理照样出网。即开着本机代理时「测试不连外网」的保证失效。去掉代理变量后通过
+- 改了什么（只修第 1 个）：Windows 补写 `.bat` 替身从 `inertTools` 挪进 `StandIns` 本身，所有调用方都用上
+  ```go
+  // internal/testenv/testenv.go:200（StandIns 内）
+  if runtime.GOOS == "windows" {
+  	if err := os.WriteFile(p+".bat", []byte("@exit /b 1\r\n"), 0o755); err != nil {
+  		return err
+  	}
+  }
+  ```
+- 验证：
+  - 新增 `TestStandInsComeFirstOnPath`（`testenv_test.go:38`）：改之前在本机失败（4 个名字找到真程序，4 个找不到），改之后通过
+  - `TestKeyProxy` 通过，单个耗时 1.45s → 0.31s
+  - 整包 `go test ./internal/gateway/ -timeout 30m`：895s → 486s，剩 2 个失败就是上面的第 2、3 个
+  - `go vet ./internal/testenv/` 通过；`go test ./internal/testenv/` 去掉代理变量后全过（带着代理变量时只有 `TestOffline` 失败，即第 4 个）
+- 影响文件：`internal/testenv/testenv.go`, `internal/testenv/testenv_test.go`
+- 下一步：第 2、3、4 个待用户决定是否修；所有代码改动都还没提交
