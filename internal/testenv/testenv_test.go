@@ -2,6 +2,7 @@ package testenv
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -27,6 +28,24 @@ func TestIsolate(t *testing.T) {
 	remove(home)
 	if _, err := os.Stat(home); !os.IsNotExist(err) {
 		t.Errorf("the test home is still there: %v", err)
+	}
+}
+
+// Each stand-in is what PATH finds for its name, for every caller of
+// StandIns: Windows passes over a program with no extension, and the
+// gateway's tests, which call StandIns themselves, ran the user's own
+// cursor-agent.cmd from further down PATH.
+func TestStandInsComeFirstOnPath(t *testing.T) {
+	bin := t.TempDir()
+	if err := StandIns(bin, tools); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(warming.Wait)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, name := range tools {
+		if p, err := exec.LookPath(name); err != nil || !within(p, bin) {
+			t.Errorf("%s resolves to %q (%v), not the stand-in in %s", name, p, err, bin)
+		}
 	}
 }
 

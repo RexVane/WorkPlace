@@ -181,27 +181,26 @@ func inertTools(home string) error {
 	if err := StandIns(bin, tools); err != nil {
 		return err
 	}
-	for _, name := range tools {
-		// Windows finds a program by PATHEXT; a .bat comes before the
-		// user's claude.cmd further down PATH
-		if runtime.GOOS == "windows" {
-			if err := os.WriteFile(filepath.Join(bin, name+".bat"), []byte("@exit /b 1\r\n"), 0o755); err != nil {
-				return err
-			}
-		}
-	}
 	return os.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
-// StandIns writes a failing program for each name in bin. On macOS each
-// is run once now, in the background, so that the check macOS makes of a
-// new program's first run (Program) is made while the tests start rather
-// than in the first test to reach it, and without holding them up.
+// StandIns writes a failing program for each name in bin. Windows finds a
+// program by PATHEXT and passes over one with no extension, so there each
+// has a .bat beside it, which comes before the user's claude.cmd further
+// down PATH. On macOS each is run once now, in the background, so that the
+// check macOS makes of a new program's first run (Program) is made while
+// the tests start rather than in the first test to reach it, and without
+// holding them up.
 func StandIns(bin string, names []string) error {
 	for _, name := range names {
 		p := filepath.Join(bin, name)
 		if err := os.WriteFile(p, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
 			return err
+		}
+		if runtime.GOOS == "windows" {
+			if err := os.WriteFile(p+".bat", []byte("@exit /b 1\r\n"), 0o755); err != nil {
+				return err
+			}
 		}
 		if runtime.GOOS == "darwin" {
 			warming.Add(1)
