@@ -146,3 +146,13 @@
 - 正式版：`CGO_ENABLED=0 go build -tags production -trimpath -ldflags="-s -w -X main.version=bcee08d-dirty -H windowsgui"`，旧 exe 移到 `backups/magpie.exe-20261008-2317`，新 exe 装到 `%LOCALAPPDATA%\Programs\magpie\magpie.exe` 以 `tray` 启动（PID 28436），3425 监听。四档各发一条 16 token 的请求：`claude/claude-opus-5-5`、`group/auto-gpt-6-astra`、`group/auto-grok-4-7`、`deepseek/deepseek-flash` 都回 ok
 - 影响文件：`internal/plugin/store.go`, `internal/plugin/store_shortname_test.go`
 - 下一步：接管旧 magpie 在 Windows 上是否可靠待查；对照用的工作树 `/tmp/magpie-base` 待用户清理；所有代码改动都还没提交
+
+## 2026-10-08 23:34 +08:00 | gpt-6 | AI 编程工作台英文命名与图标提案
+- 改了什么：
+  - 用户将目标明确为长期使用、持续自行开发的个人 AI 编程工作台，并要求英文品牌名；据此设计 Kernyard、Quivra、Yardlane 三套候选，推荐 Kernyard（kernel + yard 的创作工坊意象）。
+  - 新增独立品牌预览页，可切换三套方案与深浅主题，展示图形、字标、配色、应用标题栏概念、桌面和托盘效果；页面明确工作台场景为视觉概念。
+  - 手工绘制可编辑 SVG，导出每套 7 个 PNG 尺寸、包含 7 个尺寸的 Windows ICO，以及 5 个尺寸的黑白透明托盘图标；导出脚本覆盖旧产物前会移入项目 backups/。
+  - 设计说明记录命名初筛、源文件使用方法及后续品牌集成涉及的更新源、配置兼容等边界；原程序品牌与运行配置尚未替换。调整前的中文概念保存在 backups/branding-20261008-232456/。
+- 验证：Chromium 与 WebKit 各 15 项检查通过（品牌和主题切换、1440/390/320px 宽度、键盘选择、图片和下载路径）；查看桌面和手机截图；JavaScript 语法检查通过。此轮未修改应用运行代码，未跑 Go 测试。
+- 影响文件：`docs/assets/branding/`（预览、SVG、导出图标、截图与说明），`scripts/branding/render.py`
+- 下一步：用户选择品牌方案后，再处理正式程序、仓库身份、发布更新源与原配置的兼容迁移。
