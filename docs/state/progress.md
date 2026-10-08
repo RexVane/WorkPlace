@@ -143,3 +143,13 @@
 - 验证：Chromium、WebKit 各通过四种宽度 × 三种外观的 12 组检查、75 个本地引用、键盘切换与参考图展开；查看桌面、手机和对照截图；SVG 解析、PNG 尺寸及透明通道、ICO 七个入口已核对，JavaScript 语法和 git diff --check 通过。未改应用运行代码，未跑 Go 测试。
 - 影响文件：`docs/assets/branding/candidates/`、`docs/assets/branding/index.html`、`docs/assets/branding/README.md`、`scripts/branding/candidates/`、`.gitignore`。
 - 下一步：用户选择图形方向后，细化轮廓、光学尺寸与配色；本轮候选尚未安装为应用图标。
+
+## 2026-10-09 01:03 +08:00 | gpt-6-astra | 确定 WorkPlace 工坊榫接图标并完成正式资源
+- 改了什么：
+  - 用户明确选择 A「工坊榫接」。建立独立 workplace/ 正式资源目录，大尺寸保留选定造型及陶瓷白、暖铜、深石墨配色，三套候选继续留档。
+  - 针对 16、20、24px 放大主体、将接缝从 14 单位加宽至 18，减薄侧面与阴影；单色小图增加纵向高度。生成实际尺寸与最近邻放大的前后对照，目视确认接缝更清楚。
+  - 导出深浅各十个 PNG 尺寸、深浅单色各七个尺寸、两份七尺寸 ICO，以及独立前景和背景；ICO 嵌入专用小尺寸版，打包为含 48 个文件的 ZIP。新增可复现导出脚本，重生成前将旧输出移入 backups/。
+  - 新增已选定图标的独立预览和下载入口，更新调研页、候选页及 README 的选择状态；页面支持深浅与单色切换，手机上的小尺寸图按三列对齐。
+- 验证：Chromium、WebKit 各通过四种宽度 × 三种外观的 12 组检查，33 个本地资源引用、键盘操作和历史页入口正常；查看桌面、手机和像素对比图；SVG、PNG 尺寸及透明通道、ICO 与 PNG 逐像素一致性、ZIP 完整性和 JavaScript 语法检查通过。未改应用运行代码，未跑 Go 测试。
+- 影响文件：`docs/assets/branding/workplace/`、`docs/assets/branding/index.html`、`docs/assets/branding/candidates/index.html`、`docs/assets/branding/README.md`、`scripts/branding/workplace.py`。
+- 下一步：后续品牌接入以 workplace/ 为正式资源来源；当前完成图标设计交付，尚未替换运行中的应用。
