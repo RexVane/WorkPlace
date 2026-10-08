@@ -3353,6 +3353,14 @@ func (s *Server) forwardTranslated(ctx context.Context, p provider.Provider, to 
 			r.Effort, req = e, &r
 		}
 	}
+	// one of OpenAI's models is read from cache by a key its client may not
+	// send (madeCacheKey); an upstream that refuses it is asked without it
+	if req.CacheKey == "" && modelFamily(model) == provider.Chat {
+		if k := madeCacheKey(in, req); k != "" {
+			r := *req
+			r.CacheKey, req = k, &r
+		}
+	}
 	// the names in force, read once however many endpoints the request is
 	// built for below
 	wires := wiresOf(ctx)
@@ -3565,6 +3573,34 @@ func (s *Server) servesElsewhere(p provider.Provider, model string, proto provid
 // cacheKeyField is the client's prompt cache key as a request carries it
 // upstream; a provider that refused it is remembered under it in unfit.
 const cacheKeyField = "prompt_cache_key"
+
+// madeCacheKey is the prompt cache key a request for one of OpenAI's models
+// (modelFamily) goes with when its client named none, as Claude Code
+// doesn't: OpenAI, and the relays in front of it, send a conversation to
+// where its prompt is cached by it, and without one a prefix sent again
+// isn't read from cache. A Claude Code subagent on GPT-6 Astra through a
+// sub2api relay read 7.5% of its input from cache; the same prefix sent
+// three times with no key read none, and twice with a key read 94.6% the
+// second time. It is made as cursorConversation makes Cursor's id: from the
+// agent's session header and the conversation's first user message, which
+// every later request repeats, so subagents running at once under one
+// session are apart. "" with no session header: a first message alone
+// ("hi") would put strangers' conversations under one key.
+func madeCacheKey(in http.Header, req *Request) string {
+	session := nativeSessionOf(in)
+	if session == "" {
+		return ""
+	}
+	var first []byte
+	for _, m := range req.Messages {
+		if m.Role == "user" {
+			first, _ = json.Marshal(m)
+			break
+		}
+	}
+	sum := sha256.Sum256([]byte("prompt cache key\x00" + session + "\x00" + string(first)))
+	return uuidOf(sum[:])
+}
 
 // refusesField recognizes a vendor turning a request away for a field it
 // doesn't take — Gemini's "Unknown name", Mistral's extra_forbidden,

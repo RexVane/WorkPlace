@@ -207,3 +207,77 @@ func TestAnthropicPromptCache(t *testing.T) {
 		t.Fatalf("%d marks: %s", n, b)
 	}
 }
+
+// Claude Code names no prompt cache key; a request of its for one of
+// OpenAI's models goes upstream with one made from its session and the
+// conversation's first user message: the same on every turn, apart for
+// another subagent of the session and for another session. A model of
+// another vendor's, a client that names no session, and a key the client
+// named itself are left as they come.
+func TestMadeCacheKeyForOpenAIModels(t *testing.T) {
+	f := &fake{t: t, reply: effortReply}
+	up := setup(t, provider.Responses, f)
+	if err := provider.Save(provider.Provider{ID: "fake", Name: "Fake", Key: "k", Models: []string{"gpt-6-astra", "deepseek-flash"}, Responses: up.URL + "/v1"}); err != nil {
+		t.Fatal(err)
+	}
+	srv := New()
+	// a Claude Code turn: its system prompt, the task, and the turns after it
+	turn := func(model, task, after string) string {
+		return `{"model":"` + model + `","max_tokens":100,"stream":true,
+		  "system":[{"type":"text","text":"x-anthropic-billing-header: cc_version=2.1.293; cch=1;"},{"type":"text","text":"You are Claude Code","cache_control":{"type":"ephemeral"}}],
+		  "messages":[{"role":"user","content":[{"type":"text","text":"` + task + `"}]}` + after + `]}`
+	}
+	later := `,{"role":"assistant","content":[{"type":"text","text":"on it"}]},{"role":"user","content":[{"type":"text","text":"go on","cache_control":{"type":"ephemeral"}}]}`
+	key := func(body, session string) string {
+		t.Helper()
+		r := httptest.NewRequest("POST", "/v1/messages", strings.NewReader(body))
+		if session != "" {
+			r.Header.Set("X-Claude-Code-Session-Id", session)
+		}
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, r)
+		if rec.Code != 200 {
+			t.Fatalf("%d %s", rec.Code, rec.Body.String())
+		}
+		var got struct {
+			Key *string `json:"prompt_cache_key"`
+		}
+		json.Unmarshal(f.got, &got)
+		if got.Key == nil {
+			return ""
+		}
+		return *got.Key
+	}
+	first := key(turn("gpt-6-astra", "list files", ""), "ses-1")
+	if first == "" {
+		t.Fatalf("no key: %s", f.got)
+	}
+	if k := key(turn("gpt-6-astra", "list files", later), "ses-1"); k != first {
+		t.Errorf("next turn: %q, want %q", k, first)
+	}
+	if k := key(turn("gpt-6-astra", "read the docs", ""), "ses-1"); k == "" || k == first {
+		t.Errorf("another subagent of the session: %q", k)
+	}
+	if k := key(turn("gpt-6-astra", "list files", ""), "ses-2"); k == "" || k == first {
+		t.Errorf("another session: %q", k)
+	}
+	if k := key(turn("deepseek-flash", "list files", ""), "ses-1"); k != "" {
+		t.Errorf("another vendor's model: %q", k)
+	}
+	if k := key(turn("gpt-6-astra", "list files", ""), ""); k != "" {
+		t.Errorf("no session: %q", k)
+	}
+
+	// Codex's own key goes as it is
+	r := httptest.NewRequest("POST", "/v1/responses", strings.NewReader(strings.Replace(codexTurn(""), `"m1"`, `"gpt-6-astra"`, 1)))
+	r.Header.Set("session_id", "thread-1")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, r)
+	var got struct {
+		Key string `json:"prompt_cache_key"`
+	}
+	json.Unmarshal(f.got, &got)
+	if rec.Code != 200 || got.Key != "thread-1" {
+		t.Errorf("codex: %d %q", rec.Code, got.Key)
+	}
+}
