@@ -1,5 +1,41 @@
 <div align="center">
 
+<a href="docs/assets/branding/workplace/index.html"><img src="docs/assets/branding/workplace/icon.svg" width="104" alt="WorkPlace"></a>
+
+# WorkPlace
+
+自己的 AI 编程工作台。
+
+[English](README.md) · **简体中文** · [项目文档](docs/README.md) · [品牌资源](docs/assets/branding/README.md)
+
+</div>
+
+WorkPlace 基于 [Magpie](https://github.com/yetone/magpie) 持续开发，将 Agent、模型、供应商、插件和路由集中在一个桌面工作台中。当前 Windows 版本已接入 A「工坊榫接」图标，保留原项目的 MIT 许可与署名。
+
+## 本地构建
+
+```powershell
+powershell -NoProfile -File scripts/build/windows.ps1
+```
+
+程序与构建记录输出到 `dist/workplace-windows-amd64/`。脚本先将旧产物保留到 `backups/`，再生成 Windows 资源并核对 WorkPlace 产品信息，使用源码版本标记；安装是独立操作。依赖、图标更新和恢复方式见[维护指南](docs/workplace/maintenance.md)。
+
+应用显示名称为 **WorkPlace**。可执行文件、命令、配置目录、网关身份和 `magpie://` 协议保留兼容名称，网关默认地址为 `127.0.0.1:3425`。
+
+## 项目入口
+
+- [文档索引](docs/README.md)：目录用途、架构和命令参考。
+- [当前进度](docs/state/progress.md)：已完成工作、验证结果与后续事项。
+- [品牌资源](docs/assets/branding/README.md)：正式图标、设计来源和导出文件。
+- [代码标准](docs/code-standards.md)与[经验记录](LESSONS.md)：开发和审查要求。
+
+下面保留 Magpie 的原始项目文档，其中的下载与发行链接指向上游 Magpie；此工作区的 WorkPlace 使用上面的本地构建流程。
+
+<details>
+<summary>Magpie 原始项目文档</summary>
+
+<div align="center">
+
 <a href="https://usemagpie.ai/zh/"><img src="site/public/img/icon-256.png" width="112" alt="magpie"></a>
 
 # magpie
@@ -361,3 +397,5 @@ magpie tui                                      # 全部功能，在终端里
 ## 许可证
 
 [MIT](LICENSE)
+
+</details>

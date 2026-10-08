@@ -24,10 +24,16 @@ frames. Replaced artwork is moved into project `backups/`. The header uses
 the same lift, respects reduced motion, and no longer depends on the old
 bird's wing or tail elements. After applying the artwork, regenerate the
 Windows `.syso` from [`winres.json`](../../build/windows/winres.json) before
-building; the original `make icons` generator draws the previous bird.
+building. `make icons` applies WorkPlace assets; the previous bird generator
+is retained as upstream source in `build/icon/gen.go`.
 The [branding instructions](../assets/branding/README.md#应用接入) give the
 commands. The compiled macOS asset catalog and website artwork are separate
 from this Windows deployment.
+
+[`scripts/build/windows.ps1`](../../scripts/build/windows.ps1) builds the
+local Windows executable and records its version and hash. The
+[maintenance guide](../workplace/maintenance.md) covers build output,
+archiving and recovery.
 
 The display name does not rename `magpie.exe`, CLI commands, configuration
 directories, `magpie://` links, gateway identity, or the single-instance id.

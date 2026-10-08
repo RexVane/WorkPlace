@@ -11,3 +11,11 @@
 /magpie-dev.new.exe
 /backups/
 __pycache__/
+/.agents/
+/.claude/
+/.codex/
+/.commandcode/
+/.opencode/
+/.zcode/
+/build/darwin/actool/
+/build/darwin/magpie.iconset/

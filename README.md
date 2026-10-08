@@ -1,5 +1,41 @@
 <div align="center">
 
+<a href="docs/assets/branding/workplace/index.html"><img src="docs/assets/branding/workplace/icon.svg" width="104" alt="WorkPlace"></a>
+
+# WorkPlace
+
+Your personal AI programming workspace.
+
+**English** · [简体中文](README.zh-CN.md) · [Project docs](docs/README.md) · [Icons](docs/assets/branding/README.md)
+
+</div>
+
+WorkPlace is this workspace's Windows customization of [Magpie](https://github.com/yetone/magpie), with the selected joinery identity and a local development workflow. The application brings agents, models, providers, plugins and routing into one desktop workspace. Magpie's MIT license and attribution are retained.
+
+## Local build
+
+```powershell
+powershell -NoProfile -File scripts/build/windows.ps1
+```
+
+The executable and its build record are written to `dist/workplace-windows-amd64/`. The script preserves previous output under `backups/`, regenerates the Windows resources and verifies the WorkPlace product information. It builds a source version and leaves installation as a separate operation. See the [maintenance guide](docs/workplace/maintenance.md) for dependencies, icon updates and recovery.
+
+The installed application is named **WorkPlace**. The executable, CLI, configuration paths, gateway identity and `magpie://` protocol keep their compatible names. The gateway defaults to `127.0.0.1:3425`.
+
+## Working in this project
+
+- [Documentation index](docs/README.md): directory map, architecture and command references.
+- [Current progress](docs/state/progress.md): completed work, verification and follow-up items.
+- [Brand resources](docs/assets/branding/README.md): approved artwork, design sources and exports.
+- [Code standards](docs/code-standards.md) and [lessons](LESSONS.md): implementation and review requirements.
+
+The reference below is Magpie's original project documentation. Its downloads and release links point to upstream Magpie; this checkout's WorkPlace build uses the local workflow above.
+
+<details>
+<summary>Original Magpie README</summary>
+
+<div align="center">
+
 <a href="https://usemagpie.ai"><img src="site/public/img/icon-256.png" width="112" alt="magpie"></a>
 
 # magpie
@@ -361,3 +397,5 @@ If magpie saved you from editing one more config file, **a ⭐ helps others find
 ## License
 
 [MIT](LICENSE)
+
+</details>

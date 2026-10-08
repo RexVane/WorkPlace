@@ -45,7 +45,7 @@ python -B scripts/branding/apply_icons.py
 go run github.com/tc-hib/go-winres@v0.3.3 make --in build/windows/winres.json --arch amd64 --out rsrc --file-version 0.0.0 --product-version 0.0.0
 ```
 
-随后按项目 Windows 构建方式编译，版本保留 `-workplace-dirty` 源码标记。不要运行旧的 `make icons`，它生成的是原鸟形图标。接入边界与自动更新行为见 [GUI app shell](../../subsystems/gui-shell.md#display-name-and-icons)。本机旧程序和安装记录保存在 `backups/workplace-install-20261009-014105/`。
+完整本地构建入口是 `powershell -NoProfile -File scripts/build/windows.ps1 -RefreshIcons`，自动保留旧产物、生成资源并核对产品信息，版本保留 `-workplace-dirty` 源码标记。`make icons` 也已改为应用 WorkPlace 素材。接入边界与自动更新行为见 [GUI app shell](../../subsystems/gui-shell.md#display-name-and-icons)，清理与恢复见[维护指南](../../workplace/maintenance.md)。本机旧程序和安装记录保存在 `backups/workplace-install-20261009-014105/`。
 
 ## 三套候选留档
 

@@ -7,3 +7,15 @@ build
 magpie.app
 /*.md
 .DS_Store
+backups
+scripts
+docs
+**/__pycache__
+.agents
+.claude
+.codex
+.commandcode
+.opencode
+.zcode
+/*.exe
+/*.syso

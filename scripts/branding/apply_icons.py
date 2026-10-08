@@ -73,13 +73,19 @@ def main():
     # Retain the existing click animation's duration and frame names, using
     # a gentle lift of the new mark instead of changing back into a bird.
     frames = ROOT / "internal/gui/trayflap"
-    retire(frames)
-    frames.mkdir(parents=True)
+    rendered_frames = {}
     for frame in range(1, 31):
         offset = 0 if frame == 30 else 1.2 * math.sin(math.pi * frame / 30) ** 2
         picture = tray.transform(tray.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, offset), resample=Image.Resampling.BICUBIC)
         picture.putalpha(picture.getchannel("A").point(lambda a: 0 if a <= 2 else a))
-        write(frames / f"flap-{frame:02d}.png", png(picture))
+        rendered_frames[f"flap-{frame:02d}.png"] = png(picture)
+    unchanged = frames.is_dir() and {p.name for p in frames.iterdir()} == set(rendered_frames)
+    unchanged = unchanged and all((frames / name).read_bytes() == data for name, data in rendered_frames.items())
+    if not unchanged:
+        retire(frames)
+        frames.mkdir(parents=True)
+        for name, data in rendered_frames.items():
+            write(frames / name, data)
     for size in (16, 24, 32, 48, 64, 128, 256):
         write(ROOT / f"build/windows/icon-{size}.png", images[size])
     write(ROOT / "internal/gui/assets/icons/favicon.svg", small)
@@ -99,7 +105,10 @@ def main():
     html = html.replace('>Open magpie</button>', '>Open WorkPlace</button>')
     write(html_path, html)
     print("Applied WorkPlace: GUI icons, header, favicon, tray frames and Windows PNGs.")
-    print("Previous assets: " + str(BACKUP))
+    if BACKUP.exists():
+        print("Previous assets: " + str(BACKUP))
+    else:
+        print("All WorkPlace assets were already current.")
 
 
 if __name__ == "__main__":

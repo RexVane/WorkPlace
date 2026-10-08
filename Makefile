@@ -1,4 +1,4 @@
-# The recipes (clean's rm -rf too) name paths relative to the working
+# The recipes name paths relative to the working
 # folder, so they run only in magpie's own, known by its go.mod: run from
 # another one (make -f path/to/Makefile) they would act there. make -C
 # works. go.mod is read relative to the working folder, so a path with
@@ -12,6 +12,8 @@ endif
 VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | tr -cd 'A-Za-z0-9._+-'),dev)
 LDFLAGS  = -s -w -X main.version=$(VERSION)
 TAGS     = production
+PYTHON  ?= python3
+ARCHIVE  = $(PYTHON) -B scripts/maintenance/archive.py
 TARGETS  = darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64 android/arm64
 
 # The GUI links the platform webview through cgo, so it is built natively.
@@ -32,12 +34,14 @@ ifeq ($(shell go env GOOS),android)
   TAGS = nogui
 endif
 
-.PHONY: build cli install test test-ui app icons release release-cli release-windows release-linux clean dev dev-once
+.PHONY: build cli install test test-ui app icons workplace-windows release release-cli release-windows release-linux clean dev dev-once
 
 build:
+	@$(ARCHIVE) magpie
 	go build -tags "$(TAGS)" -trimpath -ldflags="$(LDFLAGS)" -o magpie .
 
 cli:
+	@$(ARCHIVE) magpie
 	CGO_ENABLED=0 go build -tags nogui -trimpath -ldflags="$(LDFLAGS)" -o magpie .
 
 install:
@@ -58,7 +62,7 @@ test-ui:
 
 # macOS bundle: menu bar app with no Dock icon (LSUIElement).
 app: build
-	@rm -rf magpie.app
+	@$(ARCHIVE) magpie.app
 	@mkdir -p magpie.app/Contents/MacOS magpie.app/Contents/Resources
 	@cp magpie magpie.app/Contents/MacOS/magpie
 	@cp build/darwin/magpie.icns magpie.app/Contents/Resources/magpie.icns
@@ -66,32 +70,23 @@ app: build
 	@sed 's/@VERSION@/$(VERSION)/' build/darwin/Info.plist > magpie.app/Contents/Info.plist
 	@echo "  magpie.app"
 
+# Apply the approved WorkPlace assets. The original bird generator remains
+# at build/icon/gen.go as upstream source; macOS bundles need a separate port.
 icons:
-	@go run build/icon/gen.go tray internal/gui/tray.png
-	@go run build/icon/gen.go tray-flap internal/gui/trayflap
-	@go run build/icon/gen.go app 64 internal/gui/icon.png
-	@go run build/icon/gen.go app 1024 internal/gui/icon-1024.png
-	@rm -rf build/darwin/magpie.iconset && mkdir -p build/darwin/magpie.iconset
-	@for s in 16 32 128 256 512; do \
-		go run build/icon/gen.go app $$s build/darwin/magpie.iconset/icon_$${s}x$${s}.png; \
-		go run build/icon/gen.go app $$((s*2)) build/darwin/magpie.iconset/icon_$${s}x$${s}@2x.png; \
-	done
-	@iconutil -c icns build/darwin/magpie.iconset -o build/darwin/magpie.icns && rm -rf build/darwin/magpie.iconset
-	@# macOS 26 draws the Dock icon from AppIcon.icon, light and dark (Xcode 26's actool);
-	@# the compiled Assets.car is kept in the tree so a release needn't have it
-	@go run build/icon/gen.go glyph 1024 build/darwin/AppIcon.icon/Assets/magpie.png
-	@rm -rf build/darwin/actool && mkdir -p build/darwin/actool
-	@xcrun actool build/darwin/AppIcon.icon --compile build/darwin/actool --platform macosx \
-		--minimum-deployment-target 11.0 --app-icon AppIcon --output-partial-info-plist build/darwin/actool/partial.plist >/dev/null
-	@mv build/darwin/actool/Assets.car build/darwin/Assets.car && rm -rf build/darwin/actool
+	$(PYTHON) -B scripts/branding/apply_icons.py
+
+workplace-windows:
+	powershell -NoProfile -File scripts/build/windows.ps1
 
 release: clean build
 	@mkdir -p dist
+	@$(ARCHIVE) dist/magpie-$(shell go env GOOS)-$(shell go env GOARCH)
 	@cp magpie dist/magpie-$(shell go env GOOS)-$(shell go env GOARCH)
 	@$(MAKE) --no-print-directory release-cli
 
 release-cli:
 	@mkdir -p dist
+	@$(ARCHIVE) 'dist/magpie-cli-*'
 	@for t in $(TARGETS); do \
 		os=$${t%/*}; arch=$${t#*/}; ext=""; [ $$os = windows ] && ext=.exe; \
 		echo "  $$os/$$arch (cli)"; \
@@ -104,22 +99,25 @@ release-cli:
 WINVER = $(shell echo $(VERSION) | sed -E 's/^v//; s/[^0-9.].*//')
 release-windows:
 	@mkdir -p dist
+	@$(ARCHIVE) 'dist/magpie-windows-*.exe' 'rsrc_windows_*.syso'
 	@go run github.com/tc-hib/go-winres@v0.3.3 make --in build/windows/winres.json --arch amd64,arm64 --out rsrc \
 		--file-version "$(or $(WINVER),0.0.0)" --product-version "$(or $(WINVER),0.0.0)"
 	@for arch in amd64 arm64; do \
 		echo "  windows/$$arch (app)"; \
 		CGO_ENABLED=0 GOOS=windows GOARCH=$$arch go build -tags production -trimpath -ldflags="$(LDFLAGS) -H windowsgui" -o dist/magpie-windows-$$arch.exe . || exit 1; \
-	done; rm -f rsrc_windows_*.syso
+	done
+	@$(ARCHIVE) 'rsrc_windows_*.syso'
 
 # The desktop app for Linux links GTK 3 and WebKitGTK 4.1 through cgo, so it
 # is built natively, one arch per machine.
 release-linux:
 	@mkdir -p dist
+	@$(ARCHIVE) dist/magpie-linux-$(shell go env GOARCH)
 	@echo "  linux/$(shell go env GOARCH) (app)"
 	@go build -tags "$(TAGS)" -trimpath -ldflags="$(LDFLAGS)" -o dist/magpie-linux-$(shell go env GOARCH) .
 
 clean:
-	rm -rf magpie magpie.exe magpie.app dist rsrc_windows_*.syso
+	$(ARCHIVE) magpie magpie.exe magpie.app dist 'rsrc_windows_*.syso'
 
 # Development: the UI is served from internal/gui/assets and the window
 # reloads itself when a file there is saved. With fswatch installed, the
