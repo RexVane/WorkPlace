@@ -487,9 +487,10 @@ func SetOptions(name string, opts map[string]any) error {
 
 // ShortName is a package's name without its scope and the words every
 // package of its kind has: model-map for @magpie-community/middleware-model-map,
-// zed for @magpie-community/opencode-zed-auth.
+// zed for @magpie-community/opencode-zed-auth. A folder's is its last
+// part, after a / or, as Windows writes a path, a \.
 func ShortName(pkg string) string {
-	if i := strings.LastIndex(pkg, "/"); i >= 0 {
+	if i := strings.LastIndexAny(pkg, `/\`); i >= 0 {
 		pkg = pkg[i+1:]
 	}
 	pkg = strings.TrimPrefix(strings.TrimPrefix(pkg, "middleware-"), "opencode-")
