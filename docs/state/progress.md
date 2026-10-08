@@ -133,3 +133,13 @@
 - 验证：14 个文档本地引用及 4 个展示页本地引用有效；已生成并目视检查参考对照图；渲染脚本语法有效。未改应用运行代码，未跑 Go 测试；新图标尚待设计，没有声称完成小尺寸验证。
 - 影响文件：`docs/assets/branding/README.md`、`docs/assets/branding/index.html`、`docs/assets/branding/research/`、`scripts/branding/research_board.py`；旧 `scripts/branding/render.py` 已随探索稿移入 backups/。
 - 下一步：先展示三种 WorkPlace 候选图标的主体、单色与 16–48px 效果，再完善图标资产和品牌页面；保留名称 WorkPlace，避免直接字母 W。
+
+## 2026-10-09 00:53 +08:00 | gpt-6-astra | WorkPlace 三套原创图标候选与尺寸对比
+- 改了什么：
+  - 用户认可调研后，绘制工坊榫接、汇聚的泊位、点亮的工位三套原创 SVG；以工具拼接、统一入口和个人创作空间对应项目能力，不直接使用字母 W，尚未选定最终图形和配色。
+  - 生成同尺寸对比板、三张深浅色细节板、16–48px 彩色与单色图；目视后扩大泊位核心间隙，将工位顶部改成拱形并扩大内部工作面。优先推荐榫接，同时记录其 16px 接缝细节损失及另两套的通用符号联想。
+  - 新增独立图标对比页，可切换深色、浅色、单色；SVG 和 PNG 下载跟随外观，ICO 为深色版。另可展开与四款常见工具的对照，Cursor 官方参考只裁去外围展示留白。
+  - 每套导出深浅各九个 PNG 尺寸、七尺寸 ICO、深浅透明单色 PNG，并保留分离前景与未裁圆角背景。新增可复现脚本、更新调研入口和资源说明；旧输出进入 backups/，Python 缓存加入 .gitignore。
+- 验证：Chromium、WebKit 各通过四种宽度 × 三种外观的 12 组检查、75 个本地引用、键盘切换与参考图展开；查看桌面、手机和对照截图；SVG 解析、PNG 尺寸及透明通道、ICO 七个入口已核对，JavaScript 语法和 git diff --check 通过。未改应用运行代码，未跑 Go 测试。
+- 影响文件：`docs/assets/branding/candidates/`、`docs/assets/branding/index.html`、`docs/assets/branding/README.md`、`scripts/branding/candidates/`、`.gitignore`。
+- 下一步：用户选择图形方向后，细化轮廓、光学尺寸与配色；本轮候选尚未安装为应用图标。
