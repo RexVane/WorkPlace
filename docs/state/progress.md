@@ -49,3 +49,20 @@
 - 验证：用无头 Edge 154.0.4258.62（和 WebView2 同版本）+ CDP 在 dev UI 上复现。点击内容区空白再按 ArrowDown：修复前 `focusVisible: true`、`outline: auto`，截图和用户看到的框一致；修复后 `outline: none`、截图无框；按 Tab 移到 `.ag-handle` 仍有焦点环。没跑 `internal/gui/tests`（本机没装 Playwright），也没在 WebKit 上验证
 - 影响文件：`internal/gui/assets/app.css`, `.gitignore`
 - 下一步：用户给 fork 地址后整理远端；代码改动尚未提交
+
+## 2026-10-08 19:41 +08:00 | claude-opus-5-5 | 重装正式版 magpie 到 3425，配好 claude-mix 多模型启动命令
+- 改了什么：
+  - 用户要在 Claude Code 里让子代理用 magpie 其他路由组的模型，需要常驻网关，所以重新装回正式版（上一条卸掉的是下载版）
+    - 本仓库源码自编：`CGO_ENABLED=0 go build -tags production -trimpath -ldflags="-s -w -X main.version=d85c250-dirty -H windowsgui"`，装到 `%LOCALAPPDATA%\Programs\magpie\magpie.exe`，以 `tray` 参数运行，网关 3425
+    - 它自己把 `HKCU\Software\Classes\magpie` 和 `App Paths\magpie.exe` 注册到这个路径（已核对）；dev 版（3426-3429）照常并存，所以托盘有两个图标
+  - 新增启动命令 `claude-mix`（都在仓库外，不进 git）：普通 `claude` 和 `~/.claude/settings.json` 不动
+    - `~/.local/bin/claude-mix`（Git Bash）和 `claude-mix.cmd`（cmd/PowerShell）：先探 3425，不通就拉起正式版，再执行 `claude --settings ~/.claude/mix/settings.json --append-system-prompt-file ~/.claude/mix/prompt.md "$@"`
+    - `~/.claude/mix/settings.json`：主模型和 opus 档 `claude/claude-opus-5-5`（Claude 订阅），sonnet 档和子代理默认 `group/auto-gpt-6-astra`，haiku 档和 small-fast `group/auto-grok-4-7`，fable 档 `deepseek/deepseek-flash`
+    - `~/.claude/mix/prompt.md`：告诉主模型各档对应的实际模型和分工（主模型搭框架，sonnet 执行，haiku/fable 调研）
+  - magpie 配置里新增 DeepSeek 供应商（id `deepseek`，官方 key），模型 `deepseek-flash`、`deepseek-v4-pro`
+- 注意：
+  - `group/auto-grok-4-7` 的成员只有 `cursor/grok-4.7`、`grok/grok-4.7`，两个都是已弃用的内置订阅（用户说先不迁插件）；small-fast 也指向它，所以后台小任务同样会走这两家
+  - `group/auto-gpt-6-astra` 成员依次是 `laoban`、`openai`、`copilot`
+- 验证：settings.json 能被解析；3425 的 `/v1/models` 含上述四个 id；`--append-system-prompt-file` 是 2.1.293 的隐藏参数（二进制里有说明）；Git Bash、cmd、PowerShell 都能找到 `claude-mix`。没跑真实对话，留给用户自测
+- 影响文件：仓库内无；仓库外 `~/.local/bin/claude-mix{,.cmd}`、`~/.claude/mix/*`、`%LOCALAPPDATA%\Programs\magpie\magpie.exe`
+- 下一步：用户实测 claude-mix；代码改动（导航栏、白框、dev 脚本）尚未提交
