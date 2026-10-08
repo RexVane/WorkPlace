@@ -2,22 +2,6 @@
 
 > 更早的条目已归档到 [archive/](archive/)，按月份分文件（如 `archive/2026-10.md`）。
 
-## 2026-10-08 19:06 +08:00 | claude-opus-5-5 | 卸掉正式版 magpie，修 Agent 页内容区的白框
-- 改了什么：
-  - 按用户要求卸掉正式版 magpie（3425）。卸之前确认过没有 agent 指向 3425：`~/.config/magpie/stash.json` 里 claude/codex/pi/agy 只剩 `*.reconnect`（已断开），agent 配置里也没有 3425
-    - 结束进程：先 `taskkill /T`，没退出再加 `/F`
-    - `magpie-windows-amd64.exe`、待安装的 `.exe.new`、开始菜单 `Magpie.lnk` 移进 `backups/`（`backups/` 已加入 `.gitignore`）
-    - 注册表 `HKCU\Software\Classes\magpie` 和 `App Paths\magpie.exe` 先导出成 `backups/*.reg`，再删除
-    - `~/.config/magpie` 保留，dev 版继续用这份数据
-  - 用户截图里内容区外面有一圈白框：每个 `.view` 都被设成 `tabIndex = -1`（`app.js` 中 `for (const v of document.querySelectorAll(".view"))`），鼠标点击空白处后焦点落在 `.view` 上；之后一按键，Chromium/WebView2 就给它画上默认的 `:focus-visible` 焦点环，把整页围起来。`tabIndex` 保留，只去掉 `.view` 自己的焦点环
-  ```css
-  /* internal/gui/assets/app.css:300 */
-  .view:focus { outline: none; }
-  ```
-- 验证：用无头 Edge 154.0.4258.62（和 WebView2 同版本）+ CDP 在 dev UI 上复现。点击内容区空白再按 ArrowDown：修复前 `focusVisible: true`、`outline: auto`，截图和用户看到的框一致；修复后 `outline: none`、截图无框；按 Tab 移到 `.ag-handle` 仍有焦点环。没跑 `internal/gui/tests`（本机没装 Playwright），也没在 WebKit 上验证
-- 影响文件：`internal/gui/assets/app.css`, `.gitignore`
-- 下一步：用户给 fork 地址后整理远端；代码改动尚未提交
-
 ## 2026-10-08 19:41 +08:00 | claude-opus-5-5 | 重装正式版 magpie 到 3425，配好 claude-mix 多模型启动命令
 - 改了什么：
   - 用户要在 Claude Code 里让子代理用 magpie 其他路由组的模型，需要常驻网关，所以重新装回正式版（上一条卸掉的是下载版）
