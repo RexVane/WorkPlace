@@ -140,3 +140,13 @@
 - 验证：Chromium 与 WebKit 各 15 项检查通过（品牌和主题切换、1440/390/320px 宽度、键盘选择、图片和下载路径）；查看桌面和手机截图；JavaScript 语法检查通过。此轮未修改应用运行代码，未跑 Go 测试。
 - 影响文件：`docs/assets/branding/`（预览、SVG、导出图标、截图与说明），`scripts/branding/render.py`
 - 下一步：用户选择品牌方案后，再处理正式程序、仓库身份、发布更新源与原配置的兼容迁移。
+
+## 2026-10-09 00:27 +08:00 | gpt-6-astra | WorkPlace 图标调研与设计方向
+- 改了什么：
+  - 接续最近品牌对话，确认用户选名 WorkPlace、定位长期个人 AI 编程工作台；本轮用户进一步要求不直接用 W，并明确先调研，再结合项目设计图标。配色与图形均未定稿。
+  - 先核对 README、子系统文档和实际图标调用，再读取 Cursor、Linear、Raycast、Obsidian 官方品牌资料，以及 Windows、Apple 图标规范；区分官网事实、视觉观察和设计建议。
+  - 生成图文调研、四款官方参考图的对照板、图片来源清单及本地展示页；建议优先探索“工坊榫接”，另列“汇聚的泊位”“点亮的工位”，写明小尺寸、单色、跨平台和相似性评判方式。
+  - 原三套品牌方案整体保留在 backups/branding-20261009-000545/；直接 W 稿在 backups/workplace-20261009-001335/；开放面板探索、未完成的品牌预览和旧导出脚本在 backups/branding-workplace-draft-20261009-002237/。当前展示页呈现调研，不将探索稿当成定稿。
+- 验证：14 个文档本地引用及 4 个展示页本地引用有效；已生成并目视检查参考对照图；渲染脚本语法有效。未改应用运行代码，未跑 Go 测试；新图标尚待设计，没有声称完成小尺寸验证。
+- 影响文件：`docs/assets/branding/README.md`、`docs/assets/branding/index.html`、`docs/assets/branding/research/`、`scripts/branding/research_board.py`；旧 `scripts/branding/render.py` 已随探索稿移入 backups/。
+- 下一步：先展示三种 WorkPlace 候选图标的主体、单色与 16–48px 效果，再完善图标资产和品牌页面；保留名称 WorkPlace，避免直接字母 W。
