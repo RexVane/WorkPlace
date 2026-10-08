@@ -123,3 +123,12 @@
 - 遗留（没修）：gateway 主 client（`gateway.go:335` 新建的 transport）和包级变量里在 TestMain 之前就克隆好的 transport（如 `mcp.go` 的 `mcpClient`）不受 `Offline()` 的拨号拦截；现在它们不再走代理，但直连外网仍拦不住
 - 影响文件：`internal/testenv/offline.go`, `internal/testenv/offline_test.go`, `internal/netproxy/netproxy.go`, `internal/gateway/main_test.go`, `internal/provider/kiro_main_test.go`, `internal/gateway/claude_subscription_test.go`
 - 下一步：用户决定是否升级本机 bun、22 个 Windows 测试是否另行处理；然后重编正式版装到 3425；所有代码改动都还没提交
+
+## 2026-10-08 23:06 +08:00 | claude-opus-5-5 | 本机 bun 升到 1.4.2，bun 版本导致的 4 个测试失败消失
+- 改了什么：
+  - 用户同意后执行 `bun upgrade`：`~/.bun/bin/bun.exe` 和 `bunx.exe` 从 1.3.11 升到 1.4.2（和 magpie 的下限 `BunVersion`、CI 版本一致）。旧版被 bun 留成 `~/.bun/bin/bun.exe.outdated`，可回退
+  - 升级时有个 10-07 启动的 `bun src/console.ts` 进程（PID 47540，不是本项目的）在用旧文件，没动它，它继续跑旧版
+  - 代码不改：gateway 的 `plugin_listing_proxy_test.go` 保持原样
+- 验证：不加任何 PATH 处理，原版 `TestPluginModelListThroughAccountProxy`（gateway）、`TestPluginProxy`、`TestPluginSOCKSProxy`、`TestPluginHTTP2TakesTheProxy`（plugin）全部通过
+- 影响文件：无（本机环境）
+- 下一步：用户决定 22 个 Windows 测试失败是否另行处理；然后重编正式版装到 3425
