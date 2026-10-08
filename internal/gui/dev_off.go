@@ -7,6 +7,9 @@ import (
 	"net/http"
 )
 
+// devBuild: the shipped app, not magpie-dev.
+const devBuild = false
+
 // The shipped app serves the UI from the binary, in one process.
 func staticFS() fs.FS                             { f, _ := fs.Sub(assets, "assets"); return f }
 func devRoutes(*http.ServeMux)                    {}

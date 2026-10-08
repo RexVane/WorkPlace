@@ -6,3 +6,6 @@
 /rsrc_windows_*.syso
 /magpie-dev-backend
 /magpie-dev.new
+/magpie-dev.exe
+/magpie-dev-backend.exe
+/magpie-dev.new.exe

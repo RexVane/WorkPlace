@@ -293,6 +293,11 @@ func Run(version string, showMain bool, link string) error {
 		return nil
 	}
 	go func() {
+		// these point at the running exe: magpie-dev's would take them from
+		// the installed magpie
+		if devBuild {
+			return
+		}
 		if err := registerScheme(); err != nil {
 			log.Println("magpie:// links:", err)
 		}
@@ -525,8 +530,14 @@ func singleInstance(h *host) *application.SingleInstanceOptions {
 		return nil
 	}
 	sum := sha256.Sum256([]byte(settings.Dir()))
+	id := "ai.usemagpie.app.i" + hex.EncodeToString(sum[:6])
+	// magpie-dev's gateway is on other ports: it is its own instance, not a
+	// second launch of the installed magpie on the same config
+	if devBuild {
+		id += ".dev"
+	}
 	return &application.SingleInstanceOptions{
-		UniqueID: "ai.usemagpie.app.i" + hex.EncodeToString(sum[:6]),
+		UniqueID: id,
 		OnSecondInstanceLaunch: func(d application.SecondInstanceData) {
 			args := d.Args
 			if len(args) > 0 {

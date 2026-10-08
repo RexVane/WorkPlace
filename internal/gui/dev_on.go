@@ -34,6 +34,11 @@ import (
 // the page, told so, refreshes what it shows in place. What the backend asks
 // of the windows goes back to the shell's control address.
 
+// devBuild: magpie-dev runs beside the installed magpie, on the same config
+// but its own ports, so it leaves that one's links, Start menu shortcut,
+// open at login and single instance alone.
+const devBuild = true
+
 func assetsDir() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "assets")
