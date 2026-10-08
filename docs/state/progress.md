@@ -128,3 +128,30 @@
   - `go vet ./internal/testenv/` 通过；`go test ./internal/testenv/` 去掉代理变量后全过（带着代理变量时只有 `TestOffline` 失败，即第 4 个）
 - 影响文件：`internal/testenv/testenv.go`, `internal/testenv/testenv_test.go`
 - 下一步：第 2、3、4 个待用户决定是否修；所有代码改动都还没提交
+
+## 2026-10-08 22:53 +08:00 | claude-opus-5-5 | 测试的离网保护被本机代理绕过；查清 gateway 其余失败与全仓 Windows 失败
+- 改了什么：
+  - **第 4 个（离网保护失效）**：`testenv.Offline()` 只在拨号时拦「非本机地址」，但本机代理（这台机器的 `HTTP(S)_PROXY` 和注册表系统代理都是 `127.0.0.1:7897`）本身就在本机，请求先拨到代理再由代理出网，拦不住。测试复现：代理被问 2 次，models.dev 拿到代理的 502。现在 `Offline()` 做三件事：清掉 6 个 `*_PROXY` 变量（magpie 自己的 netproxy 和测试启动的子程序都会读它们）；拨号拦截照旧；包一层 `DefaultTransport.Proxy`，要经代理去非本机地址时直接拒绝
+  ```go
+  // internal/testenv/offline.go:68
+  if proxy := t.Proxy; proxy != nil {
+  	t.Proxy = func(req *http.Request) (*url.URL, error) {
+  		p, err := proxy(req)
+  		if p != nil && !local(req.URL.Host) {
+  			return nil, refuse(req.URL.Host)
+  		}
+  		return p, err
+  	}
+  }
+  ```
+  - 系统代理那条路：magpie 自己的 transport（`mcp.go`、`update.go` 等克隆 DefaultTransport 后设 `Proxy = netproxy.Func`）会去读 Windows 注册表的系统代理。netproxy 加了可替换的 `SystemProxy`（`netproxy.go:337`，默认就是原来的 `system`），gateway 和 provider 的 TestMain 在 `Offline()` 后把它设成「无系统代理」，和 CI 上一样。testenv 不能直接 import netproxy（netproxy 的测试 import testenv，会循环）
+  - **第 3 个**：`TestSweepBridgeProjectsTakesOnlyTheBridgesFolders` 建不了符号链接时改成 `t.Skip("no symlinks here:", err)`，和仓库里同类测试一致（`claude_subscription_test.go:428`）
+  - **第 2 个不改代码**：曾把断言改成 `r.URL.Hostname()`，后来全仓测试发现 plugin 包 `TestPluginProxy`、`TestPluginSOCKSProxy`、`TestPluginHTTP2TakesTheProxy` 是同一根因：测试用 PATH 上的 bun（本机 1.3.11），低于 magpie 的下限 1.4.2（`plugin/bunupdate.go:8`，运行时从不用更旧的 bun；CI 装 1.4.2）。把 bun 1.4.2 放到 PATH 最前，**原版** 4 个测试全过，所以改回原样，本机升级 bun 即可
+- 验证：
+  - `TestOffline` 扩充后在旧代码上失败（6 个代理变量还在、代理被问 2 次），改后通过；`go vet` testenv/netproxy/gateway/provider 通过
+  - 全仓 `go test ./... -count=1 -timeout 30m`：testenv、netproxy、gateway（623s）、provider（256s）全过；单跑时 gateway 日志出现 `testenv: a test asked models.dev:443, refused`，插件宿主拉 models.dev 已被拦下
+  - 另有 5 个包共 22 个失败（根包、agent、gui、plugin、usage）。在 HEAD 的干净工作树（`/tmp/magpie-base`，不含任何未提交改动）重跑这 5 个包，**22 个完全相同**，不是本次改动引起
+  - 上游 CI 在 Windows 上本来就不跑全量测试，只编译加跑少数指定测试（`.github/workflows/test.yml:99-104`，注释说明部分测试用 $HOME 伪造家目录、假设 Unix 文件权限）。基线提交 67329b8 的 CI 三平台都绿。这 22 个属上游已接受的 Windows 测试不兼容：Unix 权限/chmod/符号链接（Aside 6 个）、家目录走 APPDATA（VS Code Insiders、Zed）、伪造的 sh 程序不能在 Windows 执行（`TestUpdateThatWontStart`）、进程未退导致临时目录删不掉等，外加上面 3 个 bun 版本问题
+- 遗留（没修）：gateway 主 client（`gateway.go:335` 新建的 transport）和包级变量里在 TestMain 之前就克隆好的 transport（如 `mcp.go` 的 `mcpClient`）不受 `Offline()` 的拨号拦截；现在它们不再走代理，但直连外网仍拦不住
+- 影响文件：`internal/testenv/offline.go`, `internal/testenv/offline_test.go`, `internal/netproxy/netproxy.go`, `internal/gateway/main_test.go`, `internal/provider/kiro_main_test.go`, `internal/gateway/claude_subscription_test.go`
+- 下一步：用户决定是否升级本机 bun、22 个 Windows 测试是否另行处理；然后重编正式版装到 3425；所有代码改动都还没提交
