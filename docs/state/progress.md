@@ -131,3 +131,19 @@
 - 备份：旧程序与安装清单在 `backups/workplace-install-20261009-014105/`；源文件、素材、原 Windows 资源分别在 `workplace-apply-20261009-012052/`、`workplace-runtime-icons-20261009-012254-849210/`、`workplace-build-20261009-013634/`（均位于 backups/）。
 - 影响文件：`internal/gui/` 的应用名称、图标、页头、动画与相关测试，`internal/shortcut/shortcut.go`，`build/windows/`，`scripts/branding/apply_icons.py`，`docs/assets/branding/README.md`，`docs/subsystems/gui-shell.md`。
 - 下一步：本机接入完成；运行和品牌改动保留在工作区，仅按规则提交本条进度。原有字体相关未提交改动保留。
+
+## 2026-10-09 02:14 +08:00 | gpt-6-astra | 全面整理 WorkPlace 文档构建与工作区
+- 改了什么：
+  - 整理前保存 253 份工作区文件及补丁到 `backups/project-tidy-20261009-015714/`。中英文 README 增加 WorkPlace 入口，原 Magpie 文档完整保留在折叠参考中；新增 `docs/README.md` 与本地维护指南，串起源码、状态、设计、构建和恢复路径。
+  - 将 `docs/screenshots/` 整体迁到 `docs/assets/screenshots/`；确认无进程使用后，将根部两份旧开发 exe、临时浏览器截图及 Python 缓存归档。正式图标、三套候选及研究来源保留；增加忽略的 `backups/README.md` 作为恢复索引。
+  - 新增 `scripts/maintenance/archive.py`，先检查全部路径，再保留原名称和相对目录移入 backups；拒绝项目外、项目根、.git 和 backups 自身，重叠模式只搬目录一次，清单与原文件分开存放。Makefile 的 clean 与产物替换改用归档，icons 改用 WorkPlace 素材。
+  - 新增 Windows PowerShell 构建入口，支持 amd64/arm64，记录版本与 SHA-256，验证产品信息；只归档目标架构的旧资源，恢复调用方环境。图标重复接入时，相同托盘帧不再生成冗余备份。
+  - 补全 Git 对工具目录与构建缓存的忽略规则，Docker 上下文排除 backups、文档、脚本、工具目录及本地 exe/syso，避免打包整个本机备份。
+  - 原有配色与字体调整保留为 `1865e0e`，WorkPlace 图标、名称及设计资源保留为 `85fb534`，维护整理保留为 `89c5a81`；通过暂存区分离混在 app.css 中的改动，没有回退工作区文件或推送远端。
+- 验证：
+  - 字体、主题、重置、持久化、菜单键盘操作与窄窗口检查 27 项通过，补跑 WebKit 的 Windows 字体检查 3 项通过；归档的路径保护、目录重叠、重名保留、清单隔离和空匹配 5 项测试通过。
+  - PowerShell 实际构建 Windows amd64 与 arm64 均通过，两个架构的资源同时保留；Linux amd64 nogui 构建、`go vet ./...` 通过。arm64 未在实机运行；本机没有 GNU Make，未直接执行 Makefile；未构建 Docker 镜像或重跑全部 Go/459 个 GUI 文件的套件。
+  - 重新应用正式图标前后，238 个运行资源 SHA-256 完全一致；217 处文档与预览引用有效，Python/PowerShell 语法、README 折叠结构及 diff 检查通过。
+  - 整理后源码工作区干净；现有 WorkPlace 继续在 3425 运行，仍为已安装的 `dccf8af-workplace-dirty`，本次没有替换已安装程序或改用户配置。
+- 影响文件：README 中英文、Makefile、`.gitignore`、`.dockerignore`、文档索引与维护指南、品牌及 GUI 文档、图标接入脚本、Windows 构建脚本、归档脚本及其测试、文档截图路径；并提交此前完整的样式与品牌工作。
+- 下一步：本轮整理完成；后续开发从 `docs/README.md` 进入，旧 Windows 测试兼容性事项仍按历史进度另行跟进。
