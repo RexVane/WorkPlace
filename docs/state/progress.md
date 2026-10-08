@@ -115,3 +115,19 @@
 - 验证：Chromium、WebKit 各通过四种宽度 × 三种外观的 12 组检查，33 个本地资源引用、键盘操作和历史页入口正常；查看桌面、手机和像素对比图；SVG、PNG 尺寸及透明通道、ICO 与 PNG 逐像素一致性、ZIP 完整性和 JavaScript 语法检查通过。未改应用运行代码，未跑 Go 测试。
 - 影响文件：`docs/assets/branding/workplace/`、`docs/assets/branding/index.html`、`docs/assets/branding/candidates/index.html`、`docs/assets/branding/README.md`、`scripts/branding/workplace.py`。
 - 下一步：后续品牌接入以 workplace/ 为正式资源来源；当前完成图标设计交付，尚未替换运行中的应用。
+
+## 2026-10-09 01:46 +08:00 | gpt-6-astra | WorkPlace 图标与名称接入并安装到本机
+- 改了什么：
+  - 用户要求直接应用，暂停后又明确继续。以已选定 A「工坊榫接」为资源来源，接入 Windows 程序图标、托盘、网页页签和页头；窗口、面板、托盘菜单及开始菜单入口显示 WorkPlace。
+  - 加入 `scripts/branding/apply_icons.py`，把正式资源复制到 GUI 和 Windows 构建目录，生成新图形的托盘动画；页头原来依赖鸟翼和尾巴的动画改为轻微浮起，遵守减少动态效果设置。内联装饰图移除重复 title，品牌名称检查不再同时匹配 SVG 标题与字标。
+  - Windows 资源补齐 24px 图标，修改 ProductName、FileDescription 和清单描述；保留 magpie.exe、命令、配置目录、网关身份、单实例标识和协议。更新 GUI 子系统文档与品牌接入说明。
+  - 使用 production 构建 `dccf8af-workplace-dirty`，沿用项目对源码版不自动安装上游发行版的处理，没有改用户的更新偏好。已替换 `%LOCALAPPDATA%\Programs\magpie\magpie.exe`，创建 WorkPlace 开始菜单入口，并打开新应用。
+- 验证：
+  - Chromium、WebKit 的品牌名称与悬停、手机和桌面布局、托盘设置及繁中/日文/德文检查通过，包含中英文场景；共 23 项。JavaScript 语法、文档本地链接和 `git diff --check` 通过。
+  - Go 托盘尺寸、各语言菜单、切换语言、面板窗口选项及快捷方式测试通过；`go vet ./...` 通过。给忽略的 backups/ 加独立 go.mod，避免全仓工具误编译保留的源码快照。
+  - 从新 exe 提取 ICO，16/24/32/48/64/128/256px 七个入口与正式 PNG 逐像素一致。实际运行窗口标题为 WorkPlace，并读取、目视确认其原生窗口图标。
+  - 本机新进程 PID 39200，实际路径和安装文件 SHA-256 均符合构建产物；3425 由该进程监听，`/`、`/api/hello` 返回新源码版本，`/v1/models` 可读取原有 115 个模型。没有发送付费模型请求。
+  - 本轮未重跑全仓 Go 测试、全部页面测试或 macOS/Linux 打包；范围为本机 Windows 品牌接入，跨平台编译图标与网站未重做。
+- 备份：旧程序与安装清单在 `backups/workplace-install-20261009-014105/`；源文件、素材、原 Windows 资源分别在 `workplace-apply-20261009-012052/`、`workplace-runtime-icons-20261009-012254-849210/`、`workplace-build-20261009-013634/`（均位于 backups/）。
+- 影响文件：`internal/gui/` 的应用名称、图标、页头、动画与相关测试，`internal/shortcut/shortcut.go`，`build/windows/`，`scripts/branding/apply_icons.py`，`docs/assets/branding/README.md`，`docs/subsystems/gui-shell.md`。
+- 下一步：本机接入完成；运行和品牌改动保留在工作区，仅按规则提交本条进度。原有字体相关未提交改动保留。
