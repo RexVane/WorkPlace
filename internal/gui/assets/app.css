@@ -1,100 +1,107 @@
-/* magpie — one quiet surface, real logos, controls that read as pop-up buttons. */
+/* magpie — quiet neutral surfaces, one soft blue, set in the code face. */
 :root {
-  --bg: #f4f4f6;
+  --bg: #f5f5f5;
   --card: #ffffff;
-  --card-2: #f9f9fb;      /* expanded editor */
-  --pill: #f1f1f4;
-  --pill-hover: #e9e9ee;
-  /* the header's view switch: its track and the thumb on the view shown, the
-     track a shade deeper than a pill so the white thumb stands off it (#477) */
-  --seg-track: #e6e6eb;
-  --seg-thumb: var(--card);
-  --seg-edge: 0 1px 2px rgba(0, 0, 0, .14), 0 0 0 .5px rgba(0, 0, 0, .08);
+  --card-2: #fafafa;      /* expanded editor */
+  --pill: #eeeeee;
+  --pill-hover: #e6e6e6;
+  /* the header's view switch: its track and the thumb on the view shown, a
+     block of the accent soft enough for --fg on it and deep enough to stand
+     off the track (#477) */
+  --seg-track: #ebebeb;
+  --seg-thumb: #d1def6;   /* the accent at 22% over the card */
+  --seg-edge: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  --seg-halo: 0 2px 8px -3px color-mix(in srgb, var(--accent) 40%, transparent);
+  --seg-glow: none;
   /* a control's quiet text (the switch's other views, a text button): darker
      than --muted, so it reads at 4.5:1 or better on every surface it sits on */
-  --ctl-fg: #63636b;
-  --line: #e3e3e8;
-  --line-2: #ececf0;
-  --fg: #1c1c21;
-  --fg-2: #4b4b53;
-  --muted: #85858d;
-  --faint: #b9b9c2;
-  --accent: #4f46e5;
-  --accent-soft: #eeedfd;
+  --ctl-fg: #5a5a5a;
+  --line: #e3e3e3;
+  --line-2: #ebebeb;
+  --fg: #1e1e1e;
+  --fg-2: #484848;
+  --muted: #7a7a7a;
+  --faint: #b5b5b5;
+  --accent: #2f6bd6;
+  --accent-soft: #e7eefb;
   --accent-fg: #ffffff;
-  --sel: #ecebfb;
-  --green: #189a58;
-  --green-soft: #e4f6ec;
-  --red: #d64545;
-  --red-soft: #fbe9e9;
-  --amber: #b45309;
-  --amber-soft: #fbf0df;
+  --sel: #e1e9fa;
+  --green: #1e8a52;
+  --green-soft: #e3f3ea;
+  --red: #cf4848;
+  --red-soft: #fae8e8;
+  --amber: #a35f0b;
+  --amber-soft: #f8eedd;
   /* an agent magpie set up that no longer goes through it */
-  --drift: #ce2c31;
-  --drift-soft: #feebec;
-  --pop-bg: rgba(255, 255, 255, .94);
-  --shadow: 0 16px 44px rgba(20, 22, 30, .16), 0 2px 8px rgba(20, 22, 30, .06), 0 0 0 .5px rgba(20, 22, 30, .1);
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --drift: #c8373a;
+  --drift-soft: #fbeaea;
+  --pop-bg: rgba(255, 255, 255, .96);
+  --shadow: 0 12px 32px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .05), 0 0 0 .5px rgba(0, 0, 0, .08);
+  /* the interface is set in the code face, as a terminal is: one face for
+     names, numbers and prose. A face chosen in Settings (--ui-font) still
+     comes first */
+  --font: var(--code);
   --code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --logo-invert: 0;
-  --tk-s: #1a7f45; --tk-k: #7c3aed; --tk-f: #1d4ed8; --tk-n: #b45309; --tk-v: #0e7490; --tk-o: #a21caf; --tk-c: #85858d;
+  --tk-s: #2f8a4e; --tk-k: #8a4fd1; --tk-f: #2f6bd6; --tk-n: #a8620a; --tk-v: #1f8796; --tk-o: #b0458f; --tk-c: #8a8a8a;
   /* what a chart tells apart: providers, agents, models */
-  --c1: #4f46e5; --c2: #0ea5e9; --c3: #10b981; --c4: #f59e0b; --c5: #ec4899; --c6: #8b5cf6; --c7: #64748b;
+  --c1: #4b7fd9; --c2: #3aa7b8; --c3: #4fae7a; --c4: #d9a03f; --c5: #d0679a; --c6: #8a73d6; --c7: #8a8f98;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1a1a1e;
-    --card: #232327;
-    --card-2: #1f1f23;
-    --pill: #2d2d33;
-    --pill-hover: #36363d;
-    --seg-track: rgba(255, 255, 255, .035);
-    --seg-thumb: rgba(255, 255, 255, .15);
-    --seg-edge: inset 0 .5px 0 rgba(255, 255, 255, .08), 0 1px 2px rgba(0, 0, 0, .3);
-    --line: #333339;
-    --line-2: #2c2c32;
-    --fg: #ededf1;
-    --fg-2: #b9b9c1;
-    --muted: #8b8b94;
-    --faint: #56565f;
-    --ctl-fg: #a1a1aa;
-    --accent: #a5b4fc;
-    --accent-soft: #2b2c47;
-    --accent-fg: #14142a;
-    --sel: #33345a;
-    --green: #6fd99b;
-    --green-soft: #1e3a2b;
-    --red: #f28b82;
-    --red-soft: #45272a;
-    --amber: #f2b544;
-    --amber-soft: #3f3220;
-    --drift: #ff9592;
-    --drift-soft: #3b1219;
-    --pop-bg: rgba(38, 38, 43, .96);
-    --shadow: 0 16px 44px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .1);
+    --bg: #151515;
+    --card: #1d1d1d;
+    --card-2: #191919;
+    --pill: #262626;
+    --pill-hover: #2f2f2f;
+    --seg-track: rgba(255, 255, 255, .04);
+    --seg-thumb: #3a4454;   /* the accent at 26% over the card */
+    --seg-edge: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+    --seg-halo: 0 2px 12px -3px color-mix(in srgb, var(--accent) 50%, transparent);
+    --seg-glow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+    --line: #2c2c2c;
+    --line-2: #242424;
+    --fg: #e6e6e6;
+    --fg-2: #b4b4b4;
+    --muted: #8c8c8c;
+    --faint: #565656;
+    --ctl-fg: #a6a6a6;
+    --accent: #8db5f2;
+    --accent-soft: #1e2838;
+    --accent-fg: #0e1420;
+    --sel: #25324a;
+    --green: #86d3a6;
+    --green-soft: #1b3326;
+    --red: #ef8f88;
+    --red-soft: #3d2224;
+    --amber: #e6b766;
+    --amber-soft: #3a2f1c;
+    --drift: #ff9a96;
+    --drift-soft: #3a1a1c;
+    --pop-bg: rgba(32, 32, 32, .97);
+    --shadow: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
     --logo-invert: 1;
-    --tk-s: #98d8a4; --tk-k: #c4b5fd; --tk-f: #93c5fd; --tk-n: #f2b544; --tk-v: #67e8f9; --tk-o: #f0abfc; --tk-c: #8b8b94;
-    --c1: #a5b4fc; --c2: #7dd3fc; --c3: #6ee7b7; --c4: #fcd34d; --c5: #f9a8d4; --c6: #c4b5fd; --c7: #94a3b8;
+    --tk-s: #93d3a2; --tk-k: #c3b1f5; --tk-f: #8db5f2; --tk-n: #e6b766; --tk-v: #7fd0dc; --tk-o: #eda6d6; --tk-c: #8c8c8c;
+    --c1: #8db5f2; --c2: #7fd0dc; --c3: #8fd6aa; --c4: #ecc277; --c5: #eea3c6; --c6: #b9a8f0; --c7: #a3a8b0;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #1a1a1e; --card: #232327; --card-2: #1f1f23; --pill: #2d2d33; --pill-hover: #36363d;
-  --seg-track: rgba(255, 255, 255, .035); --seg-thumb: rgba(255, 255, 255, .15); --seg-edge: inset 0 .5px 0 rgba(255, 255, 255, .08), 0 1px 2px rgba(0, 0, 0, .3);
-  --line: #333339; --line-2: #2c2c32; --fg: #ededf1; --fg-2: #b9b9c1; --muted: #8b8b94; --faint: #56565f; --ctl-fg: #a1a1aa;
-  --accent: #a5b4fc; --accent-soft: #2b2c47; --accent-fg: #14142a; --sel: #33345a;
-  --green: #6fd99b; --green-soft: #1e3a2b; --red: #f28b82; --red-soft: #45272a; --amber: #f2b544; --amber-soft: #3f3220;
-  --drift: #ff9592; --drift-soft: #3b1219;
-  --pop-bg: rgba(38, 38, 43, .96);
-  --shadow: 0 16px 44px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .1);
+  --bg: #151515; --card: #1d1d1d; --card-2: #191919; --pill: #262626; --pill-hover: #2f2f2f;
+  --seg-track: rgba(255, 255, 255, .04); --seg-thumb: #3a4454; --seg-edge: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  --seg-halo: 0 2px 12px -3px color-mix(in srgb, var(--accent) 50%, transparent); --seg-glow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+  --line: #2c2c2c; --line-2: #242424; --fg: #e6e6e6; --fg-2: #b4b4b4; --muted: #8c8c8c; --faint: #565656; --ctl-fg: #a6a6a6;
+  --accent: #8db5f2; --accent-soft: #1e2838; --accent-fg: #0e1420; --sel: #25324a;
+  --green: #86d3a6; --green-soft: #1b3326; --red: #ef8f88; --red-soft: #3d2224; --amber: #e6b766; --amber-soft: #3a2f1c;
+  --drift: #ff9a96; --drift-soft: #3a1a1c;
+  --pop-bg: rgba(32, 32, 32, .97);
+  --shadow: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
   --logo-invert: 1;
-  --tk-s: #98d8a4; --tk-k: #c4b5fd; --tk-f: #93c5fd; --tk-n: #f2b544; --tk-v: #67e8f9; --tk-o: #f0abfc; --tk-c: #8b8b94;
-  --c1: #a5b4fc; --c2: #7dd3fc; --c3: #6ee7b7; --c4: #fcd34d; --c5: #f9a8d4; --c6: #c4b5fd; --c7: #94a3b8;
+  --tk-s: #93d3a2; --tk-k: #c3b1f5; --tk-f: #8db5f2; --tk-n: #e6b766; --tk-v: #7fd0dc; --tk-o: #eda6d6; --tk-c: #8c8c8c;
+  --c1: #8db5f2; --c2: #7fd0dc; --c3: #8fd6aa; --c4: #ecc277; --c5: #eea3c6; --c6: #b9a8f0; --c7: #a3a8b0;
 }
-/* Windows' own text faces, and Chinese in YaHei UI, its UI face for it, not
-   the webview's fallback; the Mac's and Linux's stack is the one above */
-:root.win { --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif; }
-/* and its code faces, with YaHei UI for the Chinese in them: the generic
-   monospace is SimSun on a Chinese Windows, thin and unhinted at 11px (#690) */
+/* Windows' code faces, and so its interface's, with YaHei UI for the Chinese
+   in them: the generic monospace is SimSun on a Chinese Windows, thin and
+   unhinted at 11px (#690) */
 :root.win { --code: "Cascadia Mono", Consolas, "Microsoft YaHei UI", "Microsoft YaHei", monospace; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -119,13 +126,13 @@ body.panel.tinted { background: transparent; }
 .tint-probe { display: none; background: var(--panel-tint); }
 /* on the frosted panel the surfaces are tints of the backdrop, not flat paint */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) body.panel { --bg: #1b1c20; --card: #25262c; --card-2: #212227; --line: rgba(255, 255, 255, .07); --line-2: rgba(255, 255, 255, .06); --pill: #2e2f36; --pill-hover: #383942; --pill-line: rgba(255, 255, 255, .11); --pill-shadow: 0 1px 2px rgba(0, 0, 0, .28); --muted: #9c9ca6; --faint: #7c7c87; --card-edge: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+  :root:not([data-theme="light"]) body.panel { --bg: #181818; --card: #212121; --card-2: #1c1c1c; --line: rgba(255, 255, 255, .07); --line-2: rgba(255, 255, 255, .06); --pill: #2a2a2a; --pill-hover: #333333; --pill-line: rgba(255, 255, 255, .1); --pill-shadow: 0 1px 2px rgba(0, 0, 0, .28); --muted: #9a9a9a; --faint: #7a7a7a; --card-edge: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 }
-:root[data-theme="dark"] body.panel { --bg: #1b1c20; --card: #25262c; --card-2: #212227; --line: rgba(255, 255, 255, .07); --line-2: rgba(255, 255, 255, .06); --pill: #2e2f36; --pill-hover: #383942; --pill-line: rgba(255, 255, 255, .11); --pill-shadow: 0 1px 2px rgba(0, 0, 0, .28); --muted: #9c9ca6; --faint: #7c7c87; --card-edge: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+:root[data-theme="dark"] body.panel { --bg: #181818; --card: #212121; --card-2: #1c1c1c; --line: rgba(255, 255, 255, .07); --line-2: rgba(255, 255, 255, .06); --pill: #2a2a2a; --pill-hover: #333333; --pill-line: rgba(255, 255, 255, .1); --pill-shadow: 0 1px 2px rgba(0, 0, 0, .28); --muted: #9a9a9a; --faint: #7a7a7a; --card-edge: inset 0 0 0 1px rgba(255, 255, 255, .06); }
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) body.panel { --bg: #f2f2f5; --card: #ffffff; --card-2: #f8f8fa; --line: rgba(0, 0, 0, .07); --line-2: rgba(0, 0, 0, .06); --pill: #ffffff; --pill-hover: #f4f4f7; --skel: #eeeef2; --skel-hi: #e2e2e8; --pill-line: rgba(0, 0, 0, .12); --pill-shadow: 0 1px 1px rgba(0, 0, 0, .06); --faint: #9a9aa3; --card-edge: 0 0 0 1px rgba(0, 0, 0, .05), 0 1px 2px rgba(0, 0, 0, .04); }
+  :root:not([data-theme="dark"]) body.panel { --bg: #f3f3f3; --card: #ffffff; --card-2: #f8f8f8; --line: rgba(0, 0, 0, .07); --line-2: rgba(0, 0, 0, .06); --pill: #ffffff; --pill-hover: #f3f3f3; --skel: #ededed; --skel-hi: #e1e1e1; --pill-line: rgba(0, 0, 0, .11); --pill-shadow: 0 1px 1px rgba(0, 0, 0, .05); --faint: #9a9a9a; --card-edge: 0 0 0 1px rgba(0, 0, 0, .05), 0 1px 2px rgba(0, 0, 0, .03); }
 }
-:root[data-theme="light"] body.panel { --bg: #f2f2f5; --card: #ffffff; --card-2: #f8f8fa; --line: rgba(0, 0, 0, .07); --line-2: rgba(0, 0, 0, .06); --pill: #ffffff; --pill-hover: #f4f4f7; --skel: #eeeef2; --skel-hi: #e2e2e8; --pill-line: rgba(0, 0, 0, .12); --pill-shadow: 0 1px 1px rgba(0, 0, 0, .06); --faint: #9a9aa3; --card-edge: 0 0 0 1px rgba(0, 0, 0, .05), 0 1px 2px rgba(0, 0, 0, .04); }
+:root[data-theme="light"] body.panel { --bg: #f3f3f3; --card: #ffffff; --card-2: #f8f8f8; --line: rgba(0, 0, 0, .07); --line-2: rgba(0, 0, 0, .06); --pill: #ffffff; --pill-hover: #f3f3f3; --skel: #ededed; --skel-hi: #e1e1e1; --pill-line: rgba(0, 0, 0, .11); --pill-shadow: 0 1px 1px rgba(0, 0, 0, .05); --faint: #9a9a9a; --card-edge: 0 0 0 1px rgba(0, 0, 0, .05), 0 1px 2px rgba(0, 0, 0, .03); }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: default; appearance: none; -webkit-appearance: none; text-align: center; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 input { font: inherit; color: var(--fg); }
@@ -209,10 +216,21 @@ body:not(.window.linux) #winclose { display: none; }
   display: inline-flex; padding: 2px; border-radius: 8px;
   /* no grey track behind the tabs: only the open one's thumb */
 }
-.seg > .thumb { border-radius: 6px; background: var(--seg-thumb); box-shadow: var(--seg-edge); }
+/* the view shown: a block of the accent lit from above, haloed in it, with
+   a bar of light along its foot that springs from tab to tab with it. The
+   light is an image over --seg-thumb, so the thumb's colour is still that */
+.seg > .thumb {
+  border-radius: 6px; background-color: var(--seg-thumb); box-shadow: var(--seg-edge), var(--seg-halo);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 65%);
+}
+.seg > .thumb::after {
+  content: ""; position: absolute; left: 50%; bottom: 1px; width: min(18px, 36%); height: 2px; border-radius: 1px;
+  transform: translateX(-50%); background: var(--accent); box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
 body.panel .seg { display: none; }
-.seg button { position: relative; z-index: 1; white-space: nowrap; height: 24px; padding: 0 12px; border-radius: 6px; font-size: 12.5px; color: var(--ctl-fg); transition: color .18s var(--ease), transform .14s var(--ease); }
-.seg button.on { color: var(--fg); }
+.seg button { position: relative; z-index: 1; white-space: nowrap; height: 24px; padding: 0 12px; border-radius: 6px; font-size: 12.5px; color: var(--ctl-fg); transition: color .18s var(--ease), text-shadow .3s var(--ease), transform .14s var(--ease); }
+.seg button.on { color: var(--fg); text-shadow: var(--seg-glow); }
+.seg button:active:not(.on) { transform: scale(.95); }
 /* a plugin update waiting for the reader: a dot on Plugins */
 .seg button.has-dot::after { content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .seg button:hover:not(.on) { color: var(--fg-2); }
@@ -277,7 +295,7 @@ body.window .top.inrow .actions { margin-left: 0; }
    tabs coming in one after another as the window opens. :where() keeps
    these as weak as the rules above, so a narrow header still tightens */
 :where(body.window:not(.mac):not(.linux)) .top { padding: 0 max(16px, calc(50% - 600px)); }
-:where(body.window:not(.mac):not(.linux)) .seg { background: var(--seg-track); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 7%, transparent); }
+:where(body.window:not(.mac):not(.linux)) .seg { background: var(--seg-track); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 7%, transparent), inset 0 1px 0 rgba(255, 255, 255, .05), 0 1px 0 rgba(255, 255, 255, .03); }
 :where(body.window:not(.mac):not(.linux)) .seg > .thumb { transition: transform .5s cubic-bezier(.3, 1.3, .5, 1), width .5s cubic-bezier(.3, 1.3, .5, 1), opacity .15s; }
 :where(body.window:not(.mac):not(.linux)) .seg button { height: 26px; padding: 0 14px; font-size: 13px; transition: color .18s var(--ease), background-color .18s var(--ease), transform .14s var(--ease); }
 :where(body.window:not(.mac):not(.linux)) .seg button:hover:not(.on) { background: color-mix(in srgb, var(--fg) 6%, transparent); }
@@ -595,7 +613,9 @@ body.window .field.solo { grid-column: auto; }
 
 /* ---- usage ---------------------------------------------------------------- */
 .usage-head { display: flex; align-items: center; gap: 10px; height: 34px; margin: 4px 0 6px; flex: none; }
-.subscription-usage { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 7px; margin-bottom: 8px; flex: none; }
+/* 300px, as the code face sets a reset's "重置于 10月14日 07:00" a fifth
+   wider than a proportional face: a window's half of the card holds it */
+.subscription-usage { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 7px; margin-bottom: 8px; flex: none; }
 .subscription-card { padding: 10px 12px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); min-width: 0; }
 .subscription-head { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
 .subscription-head .ic { width: 17px; height: 17px; }
@@ -646,7 +666,10 @@ body.window .field.solo { grid-column: auto; }
 .quota-windows.stacked .quota-n { flex-basis: 100%; display: flex; flex-wrap: wrap; column-gap: 4px; white-space: normal; }
 .quota-windows.stacked .quota-n > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .quota-reset { display: flex; flex-wrap: wrap; column-gap: 4px; margin-top: 4px; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.quota-reset > span { white-space: nowrap; }
+/* each part keeps to one line unless it alone is wider than its window:
+   then it wraps there, where nowrap ran a passed reset's date and time
+   ("重置时间已过 2026/10/8 23:10:00") under the next window's */
+.quota-reset > span { min-width: 0; }
 .quota-track { height: 4px; border-radius: 2px; background: var(--pill); overflow: hidden; }
 .quota-track i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .subscription-error { font-size: 11px; color: var(--faint); }
@@ -1770,8 +1793,10 @@ body.window .ag-sk-icon { width: 22px; height: 22px; border-radius: 6px; }
 #connectNote.brief code { font-size: 11px; color: var(--fg-2); user-select: text; -webkit-user-select: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #connectNote.brief .copy { width: 20px; height: 20px; }
 
-/* the connect card: label column, then the value with a copy button */
-.connect { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px 14px; align-items: start; padding: 12px 14px 14px; }
+/* the connect card: label column, then the value with a copy button; the
+   column is as wide as its longest label, so "Base URL" or "API 密钥" in
+   the code face stays on one line */
+.connect { display: grid; grid-template-columns: minmax(72px, max-content) minmax(0, 1fr); gap: 10px 14px; align-items: start; padding: 12px 14px 14px; }
 .connect > div { min-width: 0; }
 .connect label { font-size: 12px; color: var(--fg-2); text-align: right; padding-top: 4px; }
 .connect .hint { font-size: 11px; color: var(--fg-2); margin-top: 4px; line-height: 1.4; }
@@ -1781,7 +1806,7 @@ body.window .ag-sk-icon { width: 22px; height: 22px; border-radius: 6px; }
 .connect .segs { margin-top: -1px; }
 .connect .stack { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 @media (max-width: 520px) {
-  .connect { grid-template-columns: 48px minmax(0, 1fr); column-gap: 8px; padding-left: 10px; padding-right: 10px; }
+  .connect { grid-template-columns: minmax(48px, max-content) minmax(0, 1fr); column-gap: 8px; padding-left: 10px; padding-right: 10px; }
 }
 .copy { width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); flex: none; transition: background .12s, color .12s; }
 .copy:hover { background: var(--pill-hover); color: var(--fg); }
@@ -1938,7 +1963,7 @@ body.window .ag-sk-icon { width: 22px; height: 22px; border-radius: 6px; }
 .use.open { box-shadow: inset 0 0 0 1px var(--accent); }
 .use.add { background: none; box-shadow: none; border: 1px dashed var(--line); color: var(--faint); }
 .use.add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.key { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; font: var(--code-style, normal) var(--code-weight, 400) 11px var(--code-font, var(--code)); font-stretch: var(--code-stretch, 100%); color: var(--muted); white-space: nowrap; flex: none; margin-left: 4px; width: 128px; overflow: hidden; font-variant-numeric: tabular-nums; }
+.key { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; font: var(--code-style, normal) var(--code-weight, 400) 11px var(--code-font, var(--code)); font-stretch: var(--code-stretch, 100%); color: var(--muted); white-space: nowrap; flex: none; margin-left: 4px; width: 136px; overflow: hidden; font-variant-numeric: tabular-nums; }
 .key::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex: none; }
 .key > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .key.free { font-family: var(--ui-font, var(--font)); color: var(--faint); }
@@ -1947,7 +1972,9 @@ body.window .ag-sk-icon { width: 22px; height: 22px; border-radius: 6px; }
 .key.none { font-family: var(--ui-font, var(--font)); color: var(--amber); background: var(--amber-soft); }
 :where(html[data-fonts]) .key.none { font-style: var(--ui-style, inherit); font-weight: var(--ui-weight, inherit); font-stretch: var(--ui-stretch, 100%); }
 .key.none::before { background: var(--amber); }
-.key.acct { font-family: var(--ui-font, var(--font)); }
+/* a plan's name is the size of a key's, not the editor's .acct row's 12.5px:
+   16 characters of the code face fit the pill ("GitHub Education") */
+.key.acct { font-family: var(--ui-font, var(--font)); font-size: 11px; }
 :where(html[data-fonts]) .key.acct { font-style: var(--ui-style, inherit); font-weight: var(--ui-weight, inherit); font-stretch: var(--ui-stretch, 100%); }
 .acct { display: flex; align-items: center; gap: 8px; min-height: 26px; font-size: 12.5px; }
 .acct .n { font-weight: 500; }
@@ -2064,8 +2091,14 @@ body.window .ag-sk-icon { width: 22px; height: 22px; border-radius: 6px; }
 /* a key's row (#841): what shows only on hover takes no room till then,
    so a key's weight never squeezes its name away; the room it takes on
    hover is the row's free room, else the masked key's, and the models
-   badge gives its own up first. First and Make first stay one line */
-.accts.keys .acc .plan { flex: 0 1 auto; min-width: 3em; overflow: hidden; text-overflow: ellipsis; }
+   badge gives its own up first, the masked key before the name (in the
+   code face a short name was cut by 3px beside it). First and Make first
+   stay one line */
+.accts.keys .acc .plan { flex: 0 10 auto; min-width: 3em; overflow: hidden; text-overflow: ellipsis; }
+/* and on a narrow row, with Remove shown on hover, the weight gives up
+   room beside the name rather than leave it none ("Weight 1 · 50%" in the
+   code face is a fifth wider) */
+.accts.keys .acc .key-weight { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .accts.keys .acc > :is(.amodels:not(.set), .proto:not(.set), .alane:not(.set), .text.quiet) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .accts.keys .acc:not(:hover) > :is(.amodels:not(.set), .proto:not(.set), .alane:not(.set), .text.quiet):not(.open):not(:focus-visible) { max-width: 0; padding-left: 0; padding-right: 0; box-shadow: none; }
 .accts.keys .acc > :is(.amodels, .alane):not(.set):not(.open):not(:focus-visible) { flex-shrink: 10000; }

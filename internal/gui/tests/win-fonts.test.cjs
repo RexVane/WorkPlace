@@ -37,3 +37,24 @@ test("code text on Windows is Cascadia Mono / Consolas with YaHei UI", async () 
     await browser.close();
   }
 });
+
+// The interface is set in the code face too (--font is --code): its text,
+// a row's name and a section's label, on Windows and off it. A face chosen
+// in Settings (--ui-font, fonts.js) still comes first.
+test("interface text is the code face, a chosen face first", async () => {
+  const css = (await Promise.all(sheets.map((f) => fs.readFile(path.join(assets, f), "utf8")))).join("\n");
+  const browser = await (process.env.BROWSER === "webkit" ? webkit : chromium).launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<style>${css}</style>
+      <div class="row"><div class="who"><div class="name">DeepSeek 深度求索</div></div></div><span class="label">模型</span>`);
+    const fams = () => page.evaluate(() => ["body", ".row .name", ".label"].map((s) => getComputedStyle(document.querySelector(s)).fontFamily));
+    for (const f of await fams()) assert.match(f, /^ui-monospace, "?SF Mono"?, Menlo/, "the Mac's code stack off Windows");
+    await page.evaluate(() => document.documentElement.classList.add("win"));
+    for (const f of await fams()) assert.match(f, /^"?Cascadia Mono"?, Consolas, "?Microsoft YaHei UI"?/, "Windows' code stack");
+    await page.evaluate(() => document.documentElement.style.setProperty("--ui-font", '"Maple Mono Normal NF CN", var(--font)'));
+    for (const f of await fams()) assert.match(f, /^"?Maple Mono Normal NF CN"?, "?Cascadia Mono"?/, "the chosen face, then the code stack");
+  } finally {
+    await browser.close();
+  }
+});

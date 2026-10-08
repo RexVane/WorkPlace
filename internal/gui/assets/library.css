@@ -339,6 +339,10 @@ input.lib-setname:focus { border-color: var(--accent); box-shadow: 0 0 0 3px col
 
 @media (max-width: 560px) {
   .lib-list .row { flex-wrap: wrap; }
+  /* a row breaks after its text's first 160px, not its whole width: a long
+     description no longer leaves the picture alone on the first line, nor a
+     path in the code face the chevron alone on the last */
+  .lib-list .row > .who { flex-basis: 160px; }
   .lib-agents { max-width: 100%; }
 }
 
