@@ -333,12 +333,19 @@ var sysCache struct {
 	p  Proxy
 }
 
+// SystemProxy reads the system proxy: the OS's own setting. It is a var
+// so that another package's tests, which stay off the network
+// (testenv.Offline), can set it to none from their TestMain: the proxy
+// they would read is the runner's own, a program on loopback (Clash, a
+// VPN's), and it carries a request for a vendor out.
+var SystemProxy = system
+
 // System reads the system proxy, at most every 15 seconds.
 func System() Proxy {
 	sysCache.Lock()
 	defer sysCache.Unlock()
 	if time.Since(sysCache.at) > 15*time.Second {
-		sysCache.p, sysCache.at = system(), time.Now()
+		sysCache.p, sysCache.at = SystemProxy(), time.Now()
 	}
 	return sysCache.p
 }

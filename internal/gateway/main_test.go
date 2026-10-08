@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yetone/magpie/internal/agentenv"
+	"github.com/yetone/magpie/internal/netproxy"
 	"github.com/yetone/magpie/internal/testenv"
 )
 
@@ -80,5 +81,8 @@ func isolatedTests(m *testing.M) (int, error) {
 	// key would, in the background (a plan key's windows, #1016), and a
 	// plugin host's first start fetched models.dev
 	testenv.Offline()
+	// nor through the runner's system proxy, a program on loopback that
+	// the guard on dialing lets through: tests see none, as on CI
+	netproxy.SystemProxy = func() netproxy.Proxy { return netproxy.Proxy{} }
 	return m.Run(), nil
 }

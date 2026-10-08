@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/yetone/magpie/internal/netproxy"
 	"github.com/yetone/magpie/internal/testenv"
 )
 
@@ -18,6 +19,9 @@ import (
 func TestMain(m *testing.M) {
 	os.Exit(testenv.RunIn(m, func(home string) {
 		testenv.Offline()
+		// nor through the runner's system proxy, a program on loopback that
+		// the guard on dialing lets through: tests see none, as on CI
+		netproxy.SystemProxy = func() netproxy.Proxy { return netproxy.Proxy{} }
 		kiroCLIDB = func() string { return filepath.Join(home, "kiro-test", "kiro-cli", "data.sqlite3") }
 		kiroIDEDir = func() string { return filepath.Join(home, "kiro-test", "sso") }
 		askKiroIdentity = func(string, string) (string, string) { return "", "" }
