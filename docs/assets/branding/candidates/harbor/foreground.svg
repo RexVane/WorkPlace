@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none"><title>WorkPlace / Harbor / Foreground</title><defs><filter id="object-shadow" x="-35%" y="-35%" width="170%" height="185%"><feDropShadow dx="0" dy="9" stdDeviation="5" flood-color="#020806" flood-opacity=".45"/></filter>
+      <linearGradient id="bowl-top" x1=".1" y1=".1" x2=".85" y2="1"><stop stop-color="#C2F8F2"/><stop offset=".45" stop-color="#58B7D2"/><stop offset="1" stop-color="#367399"/></linearGradient>
+      <linearGradient id="bowl-side" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#568DA5"/><stop offset=".5" stop-color="#285870"/><stop offset="1" stop-color="#152F49"/></linearGradient>
+      <linearGradient id="bowl-edge" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#DDFFFA" stop-opacity=".95"/><stop offset=".65" stop-color="#89C6DD" stop-opacity=".2"/><stop offset="1" stop-color="#246080"/></linearGradient>
+      <radialGradient id="core" cx=".3" cy=".12" r=".9"><stop stop-color="#FFFFFF"/><stop offset=".4" stop-color="#DEEFEE"/><stop offset="1" stop-color="#83B7C9"/></radialGradient>
+      <linearGradient id="core-side" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#91B9C3"/><stop offset="1" stop-color="#426B81"/></linearGradient>
+    </defs>
+      <g filter="url(#object-shadow)">
+        <path d="M198 110C206 123 208 139 198 155C184 179 148 192 116 186C85 181 57 161 54 138C51 116 67 93 91 81L104 102C87 110 79 123 83 135C88 150 106 159 125 162C148 166 169 158 175 146C179 138 178 131 174 124Z" transform="translate(0 13)" fill="url(#bowl-side)"/>
+        <path d="M135 73C153 71 167 79 169 92C171 105 159 118 142 121C124 124 109 115 108 102C107 88 118 76 135 73Z" transform="translate(0 7)" fill="url(#core-side)"/>
+        <path d="M135 73C153 71 167 79 169 92C171 105 159 118 142 121C124 124 109 115 108 102C107 88 118 76 135 73Z" fill="url(#core)" stroke="#E8FCFA" stroke-opacity=".55" stroke-width="1"/>
+        <path d="M198 110C206 123 208 139 198 155C184 179 148 192 116 186C85 181 57 161 54 138C51 116 67 93 91 81L104 102C87 110 79 123 83 135C88 150 106 159 125 162C148 166 169 158 175 146C179 138 178 131 174 124Z" fill="url(#bowl-top)" stroke="url(#bowl-edge)" stroke-width="1.25"/>
+        <path d="M64 139C68 159 94 175 119 180C148 186 181 174 191 157" fill="none" stroke="#B5DFE5" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/>
+      </g></svg>

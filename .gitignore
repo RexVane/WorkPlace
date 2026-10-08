@@ -10,3 +10,4 @@
 /magpie-dev-backend.exe
 /magpie-dev.new.exe
 /backups/
+__pycache__/

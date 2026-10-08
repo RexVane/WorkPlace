@@ -1,0 +1,33 @@
+{
+  "retrieved_on": "2026-10-09",
+  "timezone": "Asia/Shanghai",
+  "purpose": "Official reference images for WorkPlace icon research; not WorkPlace artwork.",
+  "images": [
+    {
+      "name": "Cursor",
+      "page": "https://cursor.com/brand",
+      "image": "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/brand-logo-6.png",
+      "local": "cursor/official.png",
+      "note": "Official 2.5D icon presentation. The board removes surrounding empty margin for a comparable display size; the downloaded original is preserved."
+    },
+    {
+      "name": "Linear",
+      "page": "https://linear.app/brand",
+      "image": "https://linear.app/static/apple-touch-icon.png?v=2",
+      "local": "linear/official.png"
+    },
+    {
+      "name": "Raycast",
+      "page": "https://www.raycast.com/press",
+      "image": "https://fz1sd71lwhbqy6sh.public.blob.vercel-storage.com/press/images/logo/raycast-appicon.png?download=1",
+      "local": "raycast/official.png"
+    },
+    {
+      "name": "Obsidian",
+      "page": "https://obsidian.md/brand",
+      "article": "https://obsidian.md/blog/new-obsidian-icon/",
+      "image": "https://obsidian.md/apple-touch-icon.png",
+      "local": "obsidian/official.png"
+    }
+  ]
+}

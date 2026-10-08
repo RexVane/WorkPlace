@@ -42,7 +42,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
     const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: "chromium" }));
     t.after(() => browser.close());
     for (const c of cases) {
-      const context = await browser.newContext({ viewport: { width: 1100, height: 700 }, reducedMotion: "reduce" });
+      const context = await browser.newContext({ viewport: { width: 1100, height: 700 }, reducedMotion: "no-preference" });
       await context.addInitScript((p) => Object.defineProperty(Navigator.prototype, "platform", { get: () => p }), c.platform);
       const page = await context.newPage();
       page.setDefaultTimeout(5000);
@@ -56,7 +56,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.equal(await brand.isVisible(), c.shown, where);
       if (c.shown) {
         assert.ok(await brand.locator(".logo svg").isVisible(), `${where}: logo`);
-        assert.ok(await brand.getByText("magpie", { exact: true }).isVisible(), `${where}: name`);
+        assert.ok(await brand.getByText("WorkPlace", { exact: true }).isVisible(), `${where}: name`);
+        await brand.hover();
+        await page.waitForTimeout(450);
+        assert.ok(await brand.locator(".logo svg").isVisible(), `${where}: logo remains visible after its hover animation`);
         // beside the tabs, not under them
         const [b, n] = [await brand.boundingBox(), await page.locator("#nav").boundingBox()];
         assert.ok(b.x + b.width <= n.x, `${where}: ${JSON.stringify(b)} overlaps the tabs ${JSON.stringify(n)}`);

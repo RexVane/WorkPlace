@@ -33,8 +33,8 @@ import (
 //go:embed tray.png
 var trayIcon []byte // black glyph, tinted by the macOS menu bar
 
-// trayFlap is the bird beating its wing and flicking its tail, played on
-// the tray icon when it is clicked (build/icon/gen.go tray-flap).
+// trayFlap is the WorkPlace mark lifting briefly when clicked. Frames
+// come from scripts/branding/apply_icons.py.
 //
 //go:embed trayflap/*.png
 var trayFlap embed.FS
@@ -330,8 +330,8 @@ func Run(version string, showMain bool, link string) error {
 		// second launch); it hands its arguments to the running one and quits.
 		// The Mac sends the link to the running app itself.
 		SingleInstance: singleInstance(h),
-		Name:           "magpie",
-		Description:    "one place to pick every agent's model",
+		Name:           appName,
+		Description:    "Your personal AI programming workbench",
 		Icon:           appIconFor(),
 		Assets:         application.AssetOptions{Handler: handler},
 		Mac:            application.MacOptions{ActivationPolicy: dockPolicy(settings.Load().Dock)},
@@ -446,7 +446,7 @@ func Run(version string, showMain bool, link string) error {
 		h.tray.SetLabel("magpie")
 		go dropTrayName()
 	}
-	h.tray.SetTooltip("magpie")
+	h.tray.SetTooltip(appName)
 	if runtime.GOOS == "darwin" {
 		h.tray.SetTemplateIcon(trayIcon)
 	} else {
@@ -597,7 +597,7 @@ func (h *host) setBird(b []byte) {
 func panelOptions(goos, theme string) application.WebviewWindowOptions {
 	o := application.WebviewWindowOptions{
 		Name:            "panel",
-		Title:           "magpie",
+		Title:           appName,
 		URL:             "/?mode=panel" + theme,
 		Width:           panelWidth,
 		Height:          520,

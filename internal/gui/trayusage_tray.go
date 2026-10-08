@@ -14,7 +14,7 @@ import (
 	"github.com/yetone/magpie/internal/settings"
 )
 
-// watchTrayUsage keeps the tray's cards up to date, and plain "magpie" in
+// watchTrayUsage keeps the tray's cards up to date, and the app name in
 // the tooltip while there are none.
 func (h *host) watchTrayUsage() {
 	wake := make(chan struct{}, 1)
@@ -43,7 +43,7 @@ func (h *host) watchTrayUsage() {
 				cells = trayPlain(cells)
 			}
 			if tip == "" {
-				tip = "magpie"
+				tip = appName
 			}
 			if runtime.GOOS != "darwin" {
 				cells = nil

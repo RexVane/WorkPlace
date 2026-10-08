@@ -20162,13 +20162,11 @@ if (mode !== "window" || !document.body.classList.contains("linux")) $("#winclos
 
 // Config files may change underneath us (another magpie, an editor); reload when
 // the panel comes back into view.
-// The magpie in the corner flaps and wags its tail as the window opens and
-// when the pointer comes over it.
+// The WorkPlace mark lifts briefly on arrival and hover.
 function wag() {
   const logo = document.querySelector(".brand .logo");
-  if (!logo || logo.classList.contains("wag") || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  logo.classList.add("wag");
-  logo.querySelector(".tail").addEventListener("animationend", () => logo.classList.remove("wag"), { once: true });
+  if (!logo || logo.getAnimations().length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  logo.animate([{ transform: "translateY(0)" }, { transform: "translateY(-1.5px)", offset: .4 }, { transform: "translateY(0)" }], { duration: 360, easing: "ease-in-out" });
 }
 document.querySelector(".brand")?.addEventListener("mouseenter", wag);
 setTimeout(wag, 250);

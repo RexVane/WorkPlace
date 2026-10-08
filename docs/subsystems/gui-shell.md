@@ -7,6 +7,36 @@ with no binding generator and no bundler. `magpie web` serves the same page
 to a browser for a machine with no desktop. Package `internal/gui` hosts all
 three.
 
+## Display name and icons
+
+This checkout displays **WorkPlace**. `appName` in
+[`traymenu.go`](../../internal/gui/traymenu.go) names the native app,
+window, panel and tray menu; the page's title, wordmark and translated
+Open button use the same name. The Windows Start menu shortcut is named by
+[`shortcut.Name`](../../internal/shortcut/shortcut.go).
+
+The selected joinery artwork lives in
+[`docs/assets/branding/workplace`](../assets/branding/workplace/).
+[`scripts/branding/apply_icons.py`](../../scripts/branding/apply_icons.py)
+copies its size-specific icons into the shared GUI and Windows resources,
+embeds the small SVG in the header, and generates the tray's gentle lift
+frames. Replaced artwork is moved into project `backups/`. The header uses
+the same lift, respects reduced motion, and no longer depends on the old
+bird's wing or tail elements. After applying the artwork, regenerate the
+Windows `.syso` from [`winres.json`](../../build/windows/winres.json) before
+building; the original `make icons` generator draws the previous bird.
+The [branding instructions](../assets/branding/README.md#应用接入) give the
+commands. The compiled macOS asset catalog and website artwork are separate
+from this Windows deployment.
+
+The display name does not rename `magpie.exe`, CLI commands, configuration
+directories, `magpie://` links, gateway identity, or the single-instance id.
+The local Windows build keeps a `-workplace-dirty` source version: existing
+[`update.Released`](../../internal/update/update.go) and
+[`updates`](../../internal/gui/update.go) behavior prevents it automatically
+installing an upstream release over the local artwork. Saved update
+preferences and release URLs retain their existing meaning.
+
 ## Responsibilities and sources of truth
 
 | Part | Responsibility | Source |
