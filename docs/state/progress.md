@@ -132,3 +132,17 @@
 - 验证：不加任何 PATH 处理，原版 `TestPluginModelListThroughAccountProxy`（gateway）、`TestPluginProxy`、`TestPluginSOCKSProxy`、`TestPluginHTTP2TakesTheProxy`（plugin）全部通过
 - 影响文件：无（本机环境）
 - 下一步：用户决定 22 个 Windows 测试失败是否另行处理；然后重编正式版装到 3425
+
+## 2026-10-08 23:19 +08:00 | claude-opus-5-5 | 插件短名在 Windows 上找不到本地文件夹插件；重编正式版装回 3425
+- 改了什么：
+  - 全仓 Windows 失败里唯一的真 bug：从本地文件夹添加的插件，spec 是 Windows 路径 `C:\...\middleware-zz-tags`，`ShortName` 只按 `/` 切，`magpie plugin off zz-tags`（以及 on/rm/options、`SetOptions`）报 no plugin。`IsPath`（`store.go:269`）本就在所有系统上认 `C:\` 路径，改成两种分隔符都切；npm 包名不会含 `\`
+  ```go
+  // internal/plugin/store.go:493
+  if i := strings.LastIndexAny(pkg, `/\`); i >= 0 {
+  ```
+  - `TestSetOptionsShortName` 加 Windows 路径用例（纯字符串，Linux/macOS 的 CI 也会跑）：改前失败，改后通过
+  - 19 个 Windows 失败的其余分类（逐个读过测试）：15 个是测试按 Unix 写（chmod/0600 权限、只改 HOME 不改 APPDATA、Windows 路径原样写进 TOML、假设第 2 个 Desktop 目录是 Claude-3p、CRLF、用 sh 脚本冒充 exe；Codex 旧副本提醒在 Windows 上是代码里故意关掉的）；3 个是测试结束时子进程没退，临时目录删不掉，其中 `TestGatewayFixQuitsOnlyAMagpie` 的接管结果是 stuck，**是测试问题还是 Windows 上结束旧 magpie 的逻辑有问题，未查清**
+- 验证：`go test ./internal/plugin/` 整包全过（bun 升级后原来的 3 个也过了）；根包只剩 `TestPluginListSaysMiddleware`（断言全过，仅清理失败）；`TestPluginOnOffRmShortName` 通过
+- 正式版：`CGO_ENABLED=0 go build -tags production -trimpath -ldflags="-s -w -X main.version=bcee08d-dirty -H windowsgui"`，旧 exe 移到 `backups/magpie.exe-20261008-2317`，新 exe 装到 `%LOCALAPPDATA%\Programs\magpie\magpie.exe` 以 `tray` 启动（PID 28436），3425 监听。四档各发一条 16 token 的请求：`claude/claude-opus-5-5`、`group/auto-gpt-6-astra`、`group/auto-grok-4-7`、`deepseek/deepseek-flash` 都回 ok
+- 影响文件：`internal/plugin/store.go`, `internal/plugin/store_shortname_test.go`
+- 下一步：接管旧 magpie 在 Windows 上是否可靠待查；对照用的工作树 `/tmp/magpie-base` 待用户清理；所有代码改动都还没提交
