@@ -110,3 +110,15 @@
 - 备份：原路由文件在 backups/routing-motion-20261009-154316/；用量接入前文件在 backups/usage-motion-20261009-161243/。两份交付目录仍保留，验收后整体归档。
 - 影响文件：internal/gui/assets/routing.js、routing.css、i18n.js、index.html、usage/；internal/gui/api.go、assets_test.go；相关 GUI 测试、Makefile、GUI 子系统文档和测试说明。原 docs/workplace/maintenance.md 改动保留。
 - 下一步：完成整套 GUI 回归、截图和构建，再备份并替换本机程序；所有改动保持本地。
+
+## 2026-10-09 17:36 +08:00 | gpt-6 | 完成路由与用量页面整合及本地构建
+- 改了什么：
+  - 路由和用量交付均已接入指定项目；路由余额读取不再改写 quotas 或触发用量卡片刷新，用量分模型图表独立保存快照，保留原始统计口径与失败时的输入/输出图表。
+  - 截图发现交付版 busy 与全局加载状态重名，舞台及节点叠加变淡并失去交互；改用 rt-busy，仅隔离路由活动状态，真实保存按钮仍按原加载规则工作。可读/可操作断言在修复前失败、修复后通过。
+  - 路由恢复检查改为观察绘制帧，避免把 WebKit 遮挡期间排队 DOM 算作已显示光点；补齐真实形状的测试夹具。数字单位检查改用新图表坐标轴，并保留概览、请求、会话和托盘断言。
+- 验证：用量专项 14、路由专项 8、窗口恢复 12、Chromium 隐藏帧补跑 9、WebKit 用量刷新补跑 6、数字单位 6、旧 WebKit 兼容 6 项通过；中文路由及用量深浅/窄屏截图已目视。Go 资源测试、go vet、Linux nogui 和 Windows amd64 production 构建通过。
+- 验证限制：整套 GUI/Go 检查实际运行后发现其他失败，未跑完，在专项和构建完成后已停止；不能声称全仓通过。已单独提交本地跟踪记录 [验证详情与待查项](issues/2026-10-09-gui-verification.md)，区分已定位问题与尚未归因的失败。
+- 构建：dist/workplace-windows-amd64/magpie.exe，51aa3bb-workplace-dirty；SHA-256 为 D937CE0BA5669DB16FE53409C9BC358BC0166EDED37C8A1167AB3FC171FB4EE8。保留现有 WorkPlace 品牌；没有替换正在运行的实例或改动 Orca 工作区。
+- 备份：两份交付目录整体移入 backups/archive-20261009-172427-824256/files/，没有删除；旧构建在 backups/archive-20261009-172300-013418/，此前源码备份保留。原 docs/workplace/maintenance.md 改动未改。
+- 影响文件：internal/gui/assets/routing.js、routing.css、i18n.js、index.html、usage/；internal/gui/api.go、assets_test.go；相关 GUI 测试、Makefile、GUI 子系统说明和测试说明。
+- 下一步：本次源码整合和本地构建完成；需要发布或整仓验收时，先处理跟踪记录中的未解决事项。源码改动保留在工作区，仅提交本轮状态记录。
