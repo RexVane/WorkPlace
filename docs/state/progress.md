@@ -132,3 +132,13 @@
 - 限制：computer-use 的 orca 命令不在当前 PATH，未进行本轮原生窗口截图检查；以进程、窗口状态、网关版本及此前页面回归结果验证。
 - 影响文件：仅本条进度；启动日志在 dist/restart-20261009-182434/，现有源码改动保留。
 - 下一步：新实例保持运行，直接使用新路由页和用量页。
+
+## 2026-10-09 19:45 +08:00 | k3-256k | 清理旧 exe 与自检残留，约定开发期一律源码启动
+- 改了什么：
+  - 用户明确要求真删不必要文件和 exe（此前两个 exe 的无归档消失也已由用户确认是本人授意删除，不再追查）。删除 12 个文件共 514.8 MB：backups 三个归档快照内的旧 magpie.exe、`backups/magpie.exe-20261008-*`、`magpie-windows-amd64.exe(.new)`、`workplace-install-20261009-014105/magpie.exe`、归档内的 `magpie-dev*.exe` ×2、`dist/workplace-windows-arm64/magpie.exe`、`backups/hello.txt`；另删 archive.py 自检残留目录 `backups/verification/`（12 个几字节假 app.exe）和空目录 `dist/workplace-windows-amd64/`。
+  - 明确保留：`backups/go.mod`（让 Go 跳过备份源码，维护文档要求）、`.reg`/`.lnk` 安装记录、两个 `rsrc_*.syso`（下次构建要用）、各 `build.json`（版本与哈希记录）、dist 内 KB 级日志和审阅截图。
+  - `docs/workplace/maintenance.md` 新增「开发阶段约定（2026-10-09 起）」：预览验证一律源码启动 `scripts/dev/windows.ps1`（go run -tags dev，预览 3437/网关 3436）；敲定后才构建 exe；旧 exe 一律删除不留档（任何版本可按 build.json 从 Git 重建）；dist 不堆积临时产物。
+  - 项目根目录的"乱"是 Go 主包约定布局（main.go + CLI 子命令 + 测试平铺），属框架规定位置，未挪动；真正散乱的是 backups 散装产物，已按上条清理。
+- 验证：删除前盘点全项目 exe 清单并确认无进程占用（3425 无监听、无 magpie 进程）；未触碰任何源码、未提交改动与 .git；删除后 backups 保留归档源码与文档快照完整。
+- 影响文件：`docs/workplace/maintenance.md`（修改）；其余为上述删除项，无源码改动。
+- 下一步：用户继续以源码开发页面；敲定后用 `scripts/build/windows.ps1` 重建 exe。
