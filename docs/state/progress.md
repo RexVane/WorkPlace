@@ -188,3 +188,14 @@
 - 验证：浏览器实测请求页 86 行费用**全部显示 4 位小数、没有一行是 $0.00**（≈$0.0011、≈$0.0012、≈$0.0018…），零页面报错；`node --check` 通过。截图与数据：`dist/verify-tabs-20261009/costs-after.png`、`costs-after.json`。
 - 影响文件：`internal/gui/assets/app.js`。
 - 下一步：用户复核请求页与额度卡的金额显示；其余数字仍为 2 位。
+
+## 2026-10-09 22:49 +08:00 | deepseek-flash | Claude Code 改回标准网关端口 3425；查清"Opus 官方、其余走路由"的档位机制
+- 改了什么：
+  - 起因：用户先问「在 Claude Code 里用其他 magpie 的路由组，远端算 Claude Code 还是 Codex」，随后明确目标是「Opus 走 Claude 官方，其他档位走 magpie 路由」。
+  - 查证中转场景的 agent 归属：转发给 Remote magpie 时 magpie 用自己的 User-Agent + 对方 key，另带 `X-Magpie-Agent`/`X-Magpie-Via`（remote_magpie.go:15-30）；对端 `who, agent := callerOf(r), agentOf(r)`（gateway.go:1189-1192）——**记录**用 `who`（原 agent，显示为「Claude Code · via 电脑名」），**路由决策**用 `agent`（发送方 → `magpie`）。组规则（rules.go:143-150 的 `RuleRequest.Agent`）、Claude 分档替身（gateway.go:140-152）、Codex memory 替身（codex_memory.go:46）都按 `agent`，所以经中转的 Claude Code 在远端**不**命中 `agents=claude`；测试见 `remote_magpie_agent_test.go`。
+  - 查清用户要的分流做法：档位由 `~/.claude/settings.json` 的 `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL`（haiku 另兜底 `ANTHROPIC_SMALL_FAST_MODEL`）决定，magpie 侧在 `internal/agent/claude.go:1757-1783` 读取并由 `claudeTierStandIn` 生效（仅当 `ANTHROPIC_BASE_URL` 指向 magpie，且 id 是 `claude-*` 全名；用户自己的组优先于替身）。用户现状为主模型与 Opus/Sonnet 档全是 `claude/claude-opus-5-5[1m]`、Haiku 档 `claude/claude-haiku-4-5`，即全部走 Claude 官方订阅。**本轮未改档位**（用户只让改端口），方案已给出待其决定。
+  - 按用户要求把 `env.ANTHROPIC_BASE_URL` 从 `http://127.0.0.1:3436`（开发实例端口）改回 `http://127.0.0.1:3425`（标准网关）。改前备份 `settings.json.bak-20261009-224907`；`settings.local.json` 只含 permissions 不覆盖；文件无 BOM、LF 原样保留；改后 JSON 解析通过。
+  - 让改动立刻可用：改用 `scripts/dev/windows.ps1 -GatewayPort 3425` 启动源码实例（预览仍 3437，任务 pwsh-11），原 3436 实例已停。
+- 验证：3425 的 `/api/hello` 返回 `{"name":"magpie","version":"dev"}`；用 Claude Code 的 token（`Bearer magpie`）请求 `/v1/models` 认证通过、返回 115 个模型（含 `claude/claude-opus-5-5` 等）；3437 预览正常。
+- 影响文件：仓库外 `C:\Users\guica\.claude\settings.json`（连同 `.bak-20261009-224907`）；仓库内无代码改动。
+- 下一步：用户决定是否按「Opus 官方、Sonnet/Haiku 走路由组」改档位；若要「官方只服务 Opus」，需建一个排除 `claude/*` 的自定义组（自动组 `group/auto-claude-*` 含官方账号，达不到该目的）。另注意 3425 现由源码实例占用，将来构建 exe 前需先停它或依赖 magpie 自身的接管逻辑。
