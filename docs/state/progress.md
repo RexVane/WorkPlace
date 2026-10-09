@@ -122,3 +122,13 @@
 - 备份：两份交付目录整体移入 backups/archive-20261009-172427-824256/files/，没有删除；旧构建在 backups/archive-20261009-172300-013418/，此前源码备份保留。原 docs/workplace/maintenance.md 改动未改。
 - 影响文件：internal/gui/assets/routing.js、routing.css、i18n.js、index.html、usage/；internal/gui/api.go、assets_test.go；相关 GUI 测试、Makefile、GUI 子系统说明和测试说明。
 - 下一步：本次源码整合和本地构建完成；需要发布或整仓验收时，先处理跟踪记录中的未解决事项。源码改动保留在工作区，仅提交本轮状态记录。
+
+## 2026-10-09 18:29 +08:00 | gpt-6 | 用新页面构建重启 WorkPlace
+- 改了什么：
+  - 用户要求用新页面重启；通过应用自身的退出接口关闭旧开发窗口及后台，直接从 D:/AIApp/magpie/dist/workplace-windows-amd64/magpie.exe 启动 app routing。
+  - 写入正式安装目录并重启的组合操作被自动审批拒绝（仅返回 blocked by policy）；改用项目内已验证产物完成启动，没有替换正式安装文件或改动 Orca 工作区代码。
+  - 首次新实例随后退出，另一个开发启动任务又启动旧版；重新启动新程序并记录 stdout/stderr，再正常退出重复开发实例。没有将未查明的首次退出原因归为崩溃。
+- 验证：新 PID 54100 的执行路径、构建 SHA-256 与已验证产物一致；窗口标题 WorkPlace、响应正常；3425 的 /api/hello 返回 51aa3bb-workplace-dirty；收尾时旧开发窗口和后台均为 0。已通过 app routing 请求打开路由页；两页资源嵌入当前构建。
+- 限制：computer-use 的 orca 命令不在当前 PATH，未进行本轮原生窗口截图检查；以进程、窗口状态、网关版本及此前页面回归结果验证。
+- 影响文件：仅本条进度；启动日志在 dist/restart-20261009-182434/，现有源码改动保留。
+- 下一步：新实例保持运行，直接使用新路由页和用量页。
