@@ -87,3 +87,26 @@
   - 整理后源码工作区干净；现有 WorkPlace 继续在 3425 运行，仍为已安装的 `dccf8af-workplace-dirty`，本次没有替换已安装程序或改用户配置。
 - 影响文件：README 中英文、Makefile、`.gitignore`、`.dockerignore`、文档索引与维护指南、品牌及 GUI 文档、图标接入脚本、Windows 构建脚本、归档脚本及其测试、文档截图路径；并提交此前完整的样式与品牌工作。
 - 下一步：本轮整理完成；后续开发从 `docs/README.md` 进入，旧 Windows 测试兼容性事项仍按历史进度另行跟进。
+
+## 2026-10-09 16:35 +08:00 | gpt-6 | 接入路由与用量动效并隔离刷新状态
+- 改了什么：
+  - 用户授权替换路由交付后又要求一起处理 usage 用量页。路由接入光点轨迹、网关核心、请求计时与提示；补齐三条新文案的简中、繁中、日文和德文。
+  - 交付版路由直接调用 loadQuotas，会替换用量页缓存并重画用量/托盘卡片。改为复用较新的有效缓存，并将独立余额请求保存到路由自己的快照；失败保留上次读数，订阅账号行不触发余额请求。账号指标遵循指标菜单，补齐减少动态效果的选择器优先级。
+  ```js
+  // internal/gui/assets/routing.js:426
+  if (!balFlight && at - Math.max(balAt, balAsked) > 60e3) {
+    balAsked = at;
+    balFlight = api('usage/quotas').then((qs) => {
+      if (!Array.isArray(qs)) return;
+      balances = qs;
+      balAt = Date.now();
+      if (shown()) render();
+    }).catch(() => {}).finally(() => { balFlight = null; });
+  }
+  ```
+  - 用量动效置于 assets/usage/，接入数字、占比条、增量与分色柱图。修复模型占比错误读取 tokens 字段导致全为 0%、图表请求期间切周期/刷新遗漏最新读取，以及开启减少动态效果后旧数字仍继续滚动。图表明确标注包含缓存读写，概览卡片沿用原口径。
+  - 用量图表独立快照，不写 usage、quotas、ledger；卡片动画以供应商/账号身份匹配，托盘不接入这些包装。资源版本哈希和兼容扫描支持子目录，Makefile 纳入按域放置的新测试。
+- 验证：路由首轮 41 项中 38 项通过；余额隔离、核心与计时、宽窄布局在两引擎通过。随后指标菜单已通过两引擎；用量图例、刷新竞态与实时减少动态效果先在交付版失败，修改后行为断言通过，测试夹具补齐空 groups。新资源版本测试先失败、修正后通过；全量回归与截图仍待完成。
+- 备份：原路由文件在 backups/routing-motion-20261009-154316/；用量接入前文件在 backups/usage-motion-20261009-161243/。两份交付目录仍保留，验收后整体归档。
+- 影响文件：internal/gui/assets/routing.js、routing.css、i18n.js、index.html、usage/；internal/gui/api.go、assets_test.go；相关 GUI 测试、Makefile、GUI 子系统文档和测试说明。原 docs/workplace/maintenance.md 改动保留。
+- 下一步：完成整套 GUI 回归、截图和构建，再备份并替换本机程序；所有改动保持本地。
