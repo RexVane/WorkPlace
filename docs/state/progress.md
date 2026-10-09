@@ -154,3 +154,15 @@
 - 限制：交付原有的 Playwright 套件（`usage/motion.test.cjs` 等）本轮无法运行（浏览器被清空），因此不代表全仓或该套件通过；动效仅由浏览器实测与截图确认，未做逐帧断言。
 - 影响文件：`internal/gui/assets/usage/usage-fx.js`、`usage-fx.css`；备份见上；验证脚本与截图在 `dist/verify-tabs-20261009/`。
 - 下一步：用户查看四个标签的实际动效；确认后连同此前未提交的页面改动一起提交，敲定后再构建 exe。
+
+## 2026-10-09 21:38 +08:00 | deepseek-flash | 额度卡去掉走势曲线；全站数字统一 2 位小数
+- 改了什么：
+  - 用户看过额度卡后说「额度显示难看」「不要用曲线图」，并选择「直接删掉走势块：只留窗口进度条 + 剩余% + 重置时间」，余额类走势一并处理。据此把上游的额度走势功能整块移除（#651/#802 那套）：卡片里的窗口走势与余额走势两块、额度标题栏的走势范围选择器（`#quotaTrend`，"走势: 本周期"）、托盘卡片的细曲线（`quotaSpark`）全部删除。
+  - 连带的死代码一并清掉（app.js 共删 289 行）：`quotaCurve`/`balanceCurve`/`quotaSpark`/`drawQuotaPlot`/`quotaReadings`/`curveZoom`/`renderQuotaTrend`/`setQuotaRange`/`quotaLines`/`quotaCycle`/`quotaCycleBreak`/`quotaSpan`/`quotaPaths`/`quotaTimeText`/`quotaHistOf`，以及 `quotaRange` 状态、`QUOTA_RANGES`、storage 监听；`balanceAmount` 保留（另被 `keysSum` 使用）。`loadQuotas()` 顺带不再发 `usage/quotas/history?days=35`（该请求原本只服务这些曲线），额度加载少一次请求。app.css 删除 `.quota-curve`/`.qc-*`/`.pq-spark*`/`.balance-curve` 与走势选择器样式共 33 行；index.html 删除 `#quotaTrend` 按钮。Go 侧 `/api/usage/quotas/history` 端点保留未动（本轮只动界面）。
+  - 用户随后要求「数据精确到 0.01、保留 2 位、第三位四舍五入」。新增统一格式化器 `const dp2 = (n) => (+n || 0).toFixed(2)`（app.js，全局可用），并按用户选定的三类逐点替换：金额（`fmtCost`/`ledMoney`/`balanceAmount`/`caller-keys` 的 `usd`）、百分比（额度 `quotaText` 与圆环、缓存命中率、各 hit rate、排行占比、routing 的 `pct`/`sure`、context 的 `pct`、library 的 RTK 节省率）、数量与速度（`fmtN`、`ctxShort`、上下文徽标、`fmtBytes`、context `fmtK`、routing `tokens`、library `tokens`、各处 `tok/s` 与 `ledFormat`/`ledFormatLong` 的速度分支）。`fmtN` 里 1e7/1e5 两个"取整"分支合并进统一缩放，避免同一单位两种精度。
+  - 保留整数不变：请求数、会话数、命令数、插件安装数、耗时（ms/s）、进度百分比、图表几何计算（条宽/柱高）——这些不是"精确到 0.01"的对象，且几何改动会破坏布局；如需一并改，另开一轮。
+  - 按用户要求重启：旧 dev 实例（任务 pwsh-46）退出干净后，用 `scripts/dev/windows.ps1` 重新源码启动（任务 pwsh-138）。
+- 验证：删除后全仓检索这些标识符在 JS/HTML/CSS 中均为 0 命中；`node --check` 五个改动文件全部通过；Playwright + 系统 Edge 对预览 3437 实测：页面与托盘面板（`?mode=panel`）均 0 条曲线、0 报错、`quotas/history` 请求不再发出，7 张额度卡仍带剩余% 与重置于时间，余额卡只剩金额一行，卡片高度由约 342px 降到 230–245px。精度改动后实测：Token 2.94M、缓存命中率 89.16%、输出速度 136.26 token/秒、费用 ≈$70.76+、排行 ≈$46.69 / 87.19% / 4.84%、额度剩余 1.00% / 94.17% / 41.00% / 29.51%、余额 ¥290.78，请求数仍为整数 509；截图在 `dist/verify-tabs-20261009/`（`quota-after.png`、`precision-overview.png`）。
+- 限制：测试里写死的旧格式断言（如 `1.54B`、`66.0%`、`≈$0.400`、`95%`，涉及约 12 个 `internal/gui/tests/*.cjs`）**本轮未更新、也未执行**——本机 Playwright 浏览器已被清空，且用户选择先看效果再定，等确认显示口径后统一改。另：`go test -tags nogui ./internal/gui` 本轮失败两处，均与本次改动无关：`TestPurposeAssetMatchesUsage`（purposes.js 与 Go 目录不一致，既有）、网关接管相关测试 10 分钟超时（既有 Windows 问题）。
+- 影响文件：`internal/gui/assets/app.js`、`app.css`、`index.html`、`routing.js`、`context.js`、`library.js`、`caller-keys.js`；测试 `internal/gui/tests/quota-read-at.test.cjs`（去掉曲线断言与 `latest` 文案）；`internal/gui/tests/quota-curve.test.cjs`、`balance-curve.test.cjs` 移入 `backups/quota-trend-removal-20261009-211335/removed-tests/`；改动前原件在 `backups/quota-trend-removal-20261009-211335/`。
+- 下一步：用户查看 2 位小数与额度卡效果；确认后更新那批浏览器测试断言，并把本轮与之前的页面改动一起提交。
