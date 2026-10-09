@@ -166,3 +166,16 @@
 - 限制：测试里写死的旧格式断言（如 `1.54B`、`66.0%`、`≈$0.400`、`95%`，涉及约 12 个 `internal/gui/tests/*.cjs`）**本轮未更新、也未执行**——本机 Playwright 浏览器已被清空，且用户选择先看效果再定，等确认显示口径后统一改。另：`go test -tags nogui ./internal/gui` 本轮失败两处，均与本次改动无关：`TestPurposeAssetMatchesUsage`（purposes.js 与 Go 目录不一致，既有）、网关接管相关测试 10 分钟超时（既有 Windows 问题）。
 - 影响文件：`internal/gui/assets/app.js`、`app.css`、`index.html`、`routing.js`、`context.js`、`library.js`、`caller-keys.js`；测试 `internal/gui/tests/quota-read-at.test.cjs`（去掉曲线断言与 `latest` 文案）；`internal/gui/tests/quota-curve.test.cjs`、`balance-curve.test.cjs` 移入 `backups/quota-trend-removal-20261009-211335/removed-tests/`；改动前原件在 `backups/quota-trend-removal-20261009-211335/`。
 - 下一步：用户查看 2 位小数与额度卡效果；确认后更新那批浏览器测试断言，并把本轮与之前的页面改动一起提交。
+
+## 2026-10-09 21:54 +08:00 | deepseek-flash | 自定义供应商编辑器重排：字段分组与顺序
+- 改了什么：
+  - 用户指出供应商页的「自定义供应商」要改，方向选定为「字段与顺序 + 外观与排版」。改前实测该编辑器是 18 项平铺、无任何分组：名称 / Base URL / API 密钥 / 图标 / 请求头 / 代理 / 并发上限 / 排队上限 / 排队等待 / 价格倍率 /[联网搜索]/[脱敏]/ 账户余额 / 上下文窗口 / 最大输出 / 压缩阈值 / 模型 / 更多端点——模型反而排在最后，且与它相关的三项长度设置离得很远。
+  - 新增分节标题：`secHead()`（app.js，紧邻 `field()`）与 `.ebody > .e-sec` 样式（app.css）——整行、上方一道 hairline、11px/600/大写/muted，与项目既有 `.label` 的观感一致。
+  - 「模型」组上移到密钥之后：模型 → 上下文窗口 → 最大输出 → 压缩阈值；新增供应商（`addFormModels`）与编辑已有供应商（`renderModels(p)`）两条路径都在这一处渲染，原位置改用 `!custom` 守卫，旧的 `else if (custom)` 模型分支删除，避免重复。
+  - 「图标」从第 4 项移到表单末尾，单独成「外观」一节；新增「网络与限流」（请求头/代理/并发上限/排队上限/排队等待）与「计费与账户」（价格倍率/账户余额，两个默认隐藏的条件开关夹在中间）两节。
+  - i18n 新增 `Network and limits`（网络与限流 / 網路與限流 / ネットワークと制限 / Netzwerk und Grenzen）与 `Billing and account`（计费与账户 / 計費與帳戶 / 課金とアカウント / Abrechnung und Konto）两条 × 四语言。
+  - 预设与订阅供应商的编辑器顺序不变：分节标题只在自定义供应商下渲染（`if (custom)`）。
+- 验证：`node --check` 通过；`i18n-keys.test.cjs` 通过；用系统 Edge 实测——自定义编辑器新序列为 名称/Base URL/API 密钥 →〔模型〕模型/上下文窗口/最大输出/压缩阈值 →〔网络与限流〕请求头/代理/并发上限/排队上限/排队等待 →〔计费与账户〕价格倍率/[联网搜索]/[脱敏]/账户余额 →〔外观〕图标 → 更多端点；预设 DeepSeek 编辑器字段完整（Agent/ID/账号/密钥/…/模型/上下文窗口/最大输出/压缩阈值/备用/端点）且无自定义分节，两者均零页面报错。截图 `dist/verify-tabs-20261009/custom-editor.png`、`preset-editor.png`。按用户习惯重启（旧实例 pwsh-138 → 新实例 pwsh-163）。
+- 限制：本机没有已保存的自定义供应商，编辑已有自定义供应商这一条路径未实测；浏览器测试套件仍无法运行（Playwright 浏览器已清空）。
+- 影响文件：`internal/gui/assets/app.js`、`app.css`、`i18n.js`。
+- 下一步：用户查看重排后的编辑器；若要继续调整（分节命名、字段位置、说明文案长度），按此结构微调即可。
