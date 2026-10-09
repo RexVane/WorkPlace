@@ -142,3 +142,15 @@
 - 验证：删除前盘点全项目 exe 清单并确认无进程占用（3425 无监听、无 magpie 进程）；未触碰任何源码、未提交改动与 .git；删除后 backups 保留归档源码与文档快照完整。
 - 影响文件：`docs/workplace/maintenance.md`（修改）；其余为上述删除项，无源码改动。
 - 下一步：用户继续以源码开发页面；敲定后用 `scripts/build/windows.ps1` 重建 exe。
+
+## 2026-10-09 20:59 +08:00 | deepseek-flash | 装入用量页标签动效（上下文/会话/切页），源码重启并实测四标签
+- 改了什么：
+  - 用户新交付 `D:\chrome download projects\路由页面动效改进 (2)\deliver\bundle\`：只有 `usage/usage-fx.js`（23566 B）与 `usage/usage-fx.css`（3203 B）两个文件加一份安装说明，说明称基于本地现版修改、`app.js`/`context.js`/`context.css`/`index.html` 都不用动。用户明确「会话只修改动效，保留项目原来即可」，即会话页结构不动。
+  - 先与项目现版逐行对比确认纯增强（js 122 增 17 删、css 10 增 1 删），并验证：新代码引用的辅助函数（`active/still/visible/text/width/seen`）都是本地已有版本里的；`renderSessions`（app.js:16416）与 `renderSessTop`（app.js:16911）是经典脚本顶层函数声明、即全局可改写，而 `usage/usage-fx.js` 在 index.html:531 最后加载，包裹时机成立；新版选择的 DOM（`#sessStats/.sess-chart-head/#sessProjects/#sessModels/#sessTop/#sessList/#sessHours/.sess-hours` 与 `.ctx-*`）全部在 app.js/context.js 中真实存在。
+  - 装前把现版移入 `backups/usage-fx-tabs-20261009-205110/`，再复制新文件入 `internal/gui/assets/usage/`；`node --check` 通过。
+  - 新版新增：`contextMotion()`（圆环弧线、数值滚动、条宽/占比、窗口格闪烁、新 agent 与会话淡入）与 `sessionsMotion()`（六个统计数字、时间线峰值、项目/模型条与数值、列表数值与新会话闪烁、时段热力跳一下）都挂到 `window.UsageFx`；CSS 增加 `.usage-pane:not([hidden])` 切页淡入（`uxpane`）与时间线柱从轴长出（`uxbar`），并在 `prefers-reduced-motion` 下全部关闭。
+  - 按用户要求重启：停掉后台任务 pwsh-33（旧 dev 实例，退出干净、3436/3437 释放），用 `scripts/dev/windows.ps1` 重新源码启动（任务 pwsh-46）。
+- 验证：服务端返回的 `usage-fx.js` 为 23566 字节且含两个新函数；因 `%LOCALAPPDATA%\ms-playwright` 已被清空、项目无 node_modules，改用 `D:\AIApp\magpie-verify\ui-deps`（playwright 1.62.1）+ 系统 Edge 内核，对预览 3437 做真实浏览器实测并逐页截图（`dist/verify-tabs-20261009/`）：包裹确实生效（`String(renderSessions)` 含 `sessionsMotion`）、四个面板都拿到 `uxpane` 动画、无页面报错（仅浏览器预览下 `/wails/runtime.js` 404，属预览模式固有）。概览（30 天）显示设计稿的按模型堆叠柱状图与模型排行、5 个 KPI 卡，**不是原曲线图**；请求页为设计稿柱图 + 100 行明细；会话页完整渲染（200 行、6 个 KPI、30 柱、168 个时段格）且结构未改；上下文页约 14 秒后渲染 5 个 agent 共 16 张卡片。今日网关调用为 0（`/api/usage?period=today` calls=0，30 天为 509），概览空态是应用自身逻辑而非渲染故障。
+- 限制：交付原有的 Playwright 套件（`usage/motion.test.cjs` 等）本轮无法运行（浏览器被清空），因此不代表全仓或该套件通过；动效仅由浏览器实测与截图确认，未做逐帧断言。
+- 影响文件：`internal/gui/assets/usage/usage-fx.js`、`usage-fx.css`；备份见上；验证脚本与截图在 `dist/verify-tabs-20261009/`。
+- 下一步：用户查看四个标签的实际动效；确认后连同此前未提交的页面改动一起提交，敲定后再构建 exe。
