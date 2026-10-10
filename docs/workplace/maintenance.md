@@ -2,6 +2,35 @@
 
 本指南面向这个工作区的 Windows 应用。程序继续安装到 `%LOCALAPPDATA%\Programs\magpie\magpie.exe`，开始菜单显示 WorkPlace。已安装版本和验证结果见[进度](../state/progress.md)，正式资源见[品牌说明](../assets/branding/README.md)。
 
+## 本地开发与上游更新
+
+用户明确约定：WorkPlace 在本地独立开发，继续按需吸收 Magpie 上游更新；改动保存在本地 Git，不向上游推送或发起 PR。原项目文档中的推送、PR 和发布流程不代表用户授权执行这些操作。
+
+当前远端 `origin` 指向 `https://github.com/yetone/magpie`，是上游更新来源；推送地址为 `no_push`，保持禁用。`main` 跟踪 `origin/main`，获取更新与禁止推送可以同时保留。
+
+收到更新请求后，先保存本地工作，再获取并查看上游新增提交：
+
+```powershell
+git fetch origin
+git log --oneline HEAD..origin/main
+```
+
+`fetch` 只更新本地的远端记录，不会合并或覆盖工作文件。阅读差异后，将需要的上游改动合并到本地开发分支，保留 WorkPlace 的品牌与定制功能；解决冲突、完成相应验证，再保存为本地提交并重新构建。只需要个别修复时，可选择对应提交。后续 Agent 遵守同一约定。
+
+## 开发阶段约定（2026-10-09 起）
+
+当前项目处于开发阶段，**日常不构建、不保留 exe**：
+
+- 预览和验证一律用源码启动桌面程序：
+  ```powershell
+  powershell -NoProfile -File scripts/dev/windows.ps1          # 默认打开用量页
+  powershell -NoProfile -File scripts/dev/windows.ps1 -View routing
+  ```
+  脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:3437`，独立网关端口 3436，不占用正式实例的 3425。
+- 修改敲定后再运行 `scripts/build/windows.ps1` 构建 exe 并安装（见下节）。
+- **旧 exe 一律删除不留档**：任何版本都能按 `build.json` 记录的源码版本从 Git 重建，归档 exe 只浪费磁盘（2026-10-09 已清理约 515 MB）。
+- `dist/` 只放当前有效产物；验证日志和审阅截图确认后及时清理，不长期堆积。
+
 ## 构建
 
 需要 Go（版本要求见根部 `go.mod`）、Git、Python 3.10+ 和 PowerShell。从项目根目录执行：

@@ -65,6 +65,78 @@ preferences and release URLs retain their existing meaning.
 
 ## Constraints and failure behavior
 
+### Live routing stage
+
+The Routing page draws requests as lights following the wires through a
+circular gateway core, with trails, arrival rings and the active agents'
+colours. The core counts requests in flight and requests currently being
+replayed. Agent and account nodes show timings, reasoning levels and prompt
+composition from the existing trace. Account metrics follow the request
+metric picker. Key balances reuse a newer Usage quota reading and otherwise
+refresh a Routing-only snapshot at most once a minute while the stage is
+drawn. Failed or malformed readings keep the last snapshot; these reads
+never replace Usage's cache or redraw its cards.
+The display does not change candidate selection or fallback decisions.
+
+[`routing.js`](../../internal/gui/assets/routing.js) owns the display and
+[`routing.css`](../../internal/gui/assets/routing.css) includes its motion
+styles. Reduced motion disables the animated effects. The tray panel's
+separate routing stage keeps its existing presentation.
+Live activity uses `rt-busy`, so the shell's `busy` loading state cannot dim
+the stage or disable its controls while a request runs.
+
+### Usage layout, charts and motion
+
+Overview and Requests start with five summary cells (tokens, requests,
+estimated cost, cache hit rate and output speed), followed by a model chart
+with its ranking alongside. [`usage/usage-layout.css`](../../internal/gui/assets/usage/usage-layout.css)
+scopes this layout to the Usage window. On narrow windows the ranking moves
+below the chart and the cells use two columns. The existing Sessions and
+Context panes and tray retain their layouts.
+
+Requests shows nine primary columns. Sent/served models, effort, cache and
+speed remain available in the expanded row. Chart options and the request
+filters/export/archive controls have disclosures; a selection from a chart
+or Routing opens the filters so it can be cleared. Overview model selections
+open Requests with `via=through`, preserving the gateway-only scope.
+
+[`usage/usage-fx.js`](../../internal/gui/assets/usage/usage-fx.js) decorates
+the existing Overview, Requests and Context renderers with number and bar
+transitions, refresh deltas and a brief highlight for newly listed requests.
+Allowance animations follow provider/account identities across rearranging
+and folding. The tray panel keeps its existing renderers and presentation.
+Effects finish at their actual values when the page hides or reduced motion
+is enabled; the existing refresh interval remains in charge of data reads.
+
+Each newly loaded Overview summary can read `usage/requests` with the same
+period, `via=through` and `limit=1` for a model-stacked timeline. This read
+has its own snapshot and never assigns to `usage`, `quotas` or `ledger`.
+A late response for an older summary or period is ignored, then the newest
+summary gets its chart. An unavailable chart keeps the input/output bars.
+The stacked chart and its model percentages count input, output and cache
+reads/writes, as Requests does; its caption says so. Overview's token cell
+keeps counting input/output, its cache-rate cell includes cache reads and
+writes in the prompt, and tooltips retain the cache and reasoning counts.
+
+The new scripts/styles live under `assets/usage/`; `versionedPage` includes
+these local subdirectory paths in content-hashed asset URLs. The browser
+suite and the Safari compatibility scan include files in these directories.
+
+### Windows source development
+
+[`scripts/dev/windows.ps1`](../../scripts/dev/windows.ps1) runs `go run -tags
+dev . app usage` from this checkout, using gateway port 3436 and browser
+preview port 3437 by default. The native window reads `internal/gui/assets`
+on each request and reloads on save. Go's temporary development executable
+is not an installed or packaged release. A Go change requires restarting
+this command; page edits need no rebuild.
+
+The development single-instance ID includes the compiled source path as
+well as the configuration directory. Opening this checkout therefore
+cannot forward its window to a development shell in another checkout.
+Production keeps the existing configuration-based single-instance ID.
+Packaging remains a separate action, after the user finishes the UI edits.
+
 ### Routing purpose filter
 
 The request heading's purpose menu in [`routing.js`](../../internal/gui/assets/routing.js)
