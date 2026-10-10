@@ -453,12 +453,15 @@ function renderAgents() {
     // the CLI's version, and an update when one is out (#202); the panel's
     // name column has no room for it
     if (mode !== "panel") who.append(cliTag(a));
-    // which of magpie's models its lists show, on a line under the name
-    if (mode !== "panel" && a.models && !kind) {
+    // which of magpie's models its lists show, on a line under the name.
+    // Every agent that picks among the catalog has it, connected or not:
+    // which models it may pick is what the range narrows, and that is worth
+    // setting before the agent is wired in — a merely connectable row
+    // (「未接入」) kept it hidden until it was
+    if (mode !== "panel" && a.models) {
       const line = el("div", "ag-models-line");
       line.append(modelsEntry(a));
       who.append(line);
-      who.classList.add("with-models");
     }
     // connected to magpie or not, said under the name, with where the agent
     // picks among magpie's models itself
