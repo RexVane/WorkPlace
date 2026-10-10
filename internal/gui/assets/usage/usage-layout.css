@@ -1,0 +1,89 @@
+/* The Usage window: summary, model trend, then the request list. All rules
+   belong to this page; the tray and the Sessions/Context panes keep theirs. */
+#view-usage .usage-head { gap: 10px; margin-bottom: 12px; }
+#view-usage .usage-live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+#view-usage .usage-live[hidden] { display: none; }
+#view-usage .usage-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+#view-usage .usage-refresh { gap: 5px; }
+#view-usage .usage-cost b { font-size: 18px; }
+
+#view-usage .usage-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 15px; background: var(--card); overflow: hidden; }
+#view-usage .usage-kpis.empty { display: block; }
+#view-usage .usage-kpis > .blk { display: flex; flex-direction: column; min-width: 0; padding: 15px 18px; background: transparent; }
+#view-usage .usage-kpis > .blk + .blk { border-left: 1px solid var(--line-2); }
+#view-usage .usage-kpis .k { margin: 0 0 3px; color: var(--muted); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+#view-usage .usage-kpis .v { display: block; margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#view-usage .usage-kpis .v.cost { color: var(--green); }
+#view-usage .usage-kpis .sub { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+#view-usage .usage-kpis .meter { height: 5px; margin-top: 10px; border-radius: 3px; background: var(--pill); overflow: hidden; }
+#view-usage .usage-kpis .meter i { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+
+#usagePane > #chart, #ledgerPane .led-trend { margin-top: 10px; padding: 14px 16px 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--card); }
+#ledgerPane .led-dash { gap: 0; margin-bottom: 0; }
+#view-usage .usage-trend-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; min-height: 22px; margin-bottom: 6px; }
+#view-usage .usage-trend-title { min-width: 0; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .035em; }
+#view-usage .led-body { grid-template-columns: minmax(0, 1fr) minmax(260px, 29%); gap: 24px; }
+#view-usage .led-chart .plot { height: 300px; }
+#view-usage .led-chart .axis { font-size: 11.5px; }
+#view-usage .usage-rank .rk { padding: 11px 8px; }
+#view-usage .usage-rank .rk-a { gap: 8px; font-size: 13px; }
+#view-usage .usage-rank .rk-sw { width: 9px; height: 9px; border-radius: 3px; }
+#view-usage .usage-rank .rk-bar { margin: 7px 0 6px 17px; height: 4px; }
+#view-usage .usage-rank .rk-b { margin-left: 17px; font-size: 11.5px; }
+#view-usage .usage-rank .rk:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#usageScope { margin-bottom: 4px; }
+
+#view-usage .usage-options { position: relative; flex: none; font-size: 11.5px; color: var(--muted); }
+#view-usage .usage-options > summary { cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+#view-usage .usage-options > summary:hover { background: var(--pill); color: var(--fg); }
+#view-usage .usage-options[open] { flex-basis: 100%; }
+#view-usage .usage-options > summary { width: fit-content; margin-left: auto; }
+#view-usage .usage-options > .led-bar { justify-content: flex-end; width: 100%; padding: 8px 0; margin-bottom: 0; }
+#view-usage .usage-options .led-split { flex-wrap: wrap; }
+#view-usage .usage-options .segs { max-width: 100%; flex-wrap: wrap; }
+#view-usage .usage-request-options { margin: 6px 0; min-width: 0; }
+#view-usage .usage-request-options > summary { width: fit-content; margin-left: auto; padding: 3px 4px; color: var(--muted); font-size: 11px; cursor: pointer; }
+#view-usage .usage-request-options > summary:hover { color: var(--fg); }
+#view-usage .usage-request-options > .sess-tools { margin-top: 6px; }
+#view-usage .usage-request-options .usage-note { padding-top: 2px; margin-bottom: 8px; }
+
+#ledWrap { border-radius: 15px; }
+#ledWrap .led { font-size: 13px; }
+#ledWrap .led th { padding: 10px 11px 9px; font-size: 11.5px; }
+#ledWrap .led td { padding: 10px 11px; }
+#ledWrap .led .when .led-route-link { text-decoration: none; }
+#ledWrap .led .when .led-route-link:hover { text-decoration: underline; }
+#ledWrap .led > thead .lc-opt, #ledWrap .led > tbody > .led-row > .lc-opt { display: none; }
+#ledWrap .led .led-dl .lc-opt { display: block; }
+#ledWrap .led .price-reference { display: none; }
+#ledWrap .led .where .source-badges { margin-top: 0; }
+#ledWrap .led .where .source-badges:empty { display: none; }
+#ledWrap .led .duration { font-weight: 600; }
+#ledWrap .led .duration-fast { color: var(--fg); }
+#ledWrap .led tr.latest:not(.open) > td { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+#ledWrap .led tr.led-row:hover > td { background: var(--pill); }
+#ledWrap .led.tight th, #ledWrap .led.tight td { padding-left: 7px; padding-right: 7px; }
+#ledWrap .led.tighter th, #ledWrap .led.tighter td { padding-left: 5px; padding-right: 5px; }
+#ledWrap .led .led-detail > td { padding: 0; }
+
+@media (max-width: 1150px) {
+  #view-usage .usage-kpis > .blk { padding: 13px 12px; }
+  #view-usage .usage-kpis .v { font-size: 24px; }
+  #view-usage .usage-kpis [data-metric="speed"] .v { white-space: normal; }
+  #view-usage .led-body { gap: 14px; }
+}
+@media (max-width: 860px) {
+  #view-usage .usage-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #view-usage .usage-kpis > .blk:nth-child(odd) { border-left: 0; }
+  #view-usage .usage-kpis > .blk:nth-child(n + 3) { border-top: 1px solid var(--line-2); }
+  #view-usage .usage-kpis > .blk:last-child { grid-column: 1 / -1; }
+  #view-usage .led-body { grid-template-columns: minmax(0, 1fr); }
+  #view-usage .led-chart .plot { height: 250px; }
+  #view-usage .usage-rank { max-height: none; overflow: visible; }
+  #view-usage .usage-head { height: auto; min-height: 38px; flex-wrap: wrap; }
+  #view-usage .usage-head > .segs { flex-wrap: wrap; max-width: 100%; }
+  #view-usage .usage-head > .grow { display: none; }
+  #view-usage .usage-refresh { margin-left: auto; }
+  #view-usage .usage-kpis .sub { font-size: 11px; }
+  #ledWrap .led { font-size: 11.5px; }
+}

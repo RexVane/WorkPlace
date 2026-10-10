@@ -52,7 +52,7 @@ test:
 
 # The browser regressions under internal/gui/tests: the real pages in
 # Playwright's Chromium and WebKit; see internal/gui/tests/README.md.
-UI_TESTS = $(wildcard internal/gui/tests/*.test.cjs)
+UI_TESTS = $(wildcard internal/gui/tests/*.test.cjs internal/gui/tests/*/*.test.cjs)
 # Files are independent and run in parallel; 1 diagnoses a flaky one.
 UI_TEST_CONCURRENCY ?= 2
 

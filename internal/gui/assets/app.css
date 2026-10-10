@@ -594,7 +594,6 @@ body.window .field.solo { grid-column: auto; }
 .subscription-card.several .quota-balance:not([hidden]) + .subscription-account,
 .subscription-card.several .quota-read:not([hidden]) + .subscription-account,
 .subscription-card.several .credit-days:not([hidden]) + .subscription-account,
-.subscription-card.several .quota-curve:not([hidden]) + .subscription-account { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
 .subscription-account .user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* an account of several in brief (ARNO): its windows' names, figures and
    bars, closer to the next (its line where a full one's is, so a fold keeps it in place); its fold at the row's end */
@@ -652,34 +651,6 @@ body.window .field.solo { grid-column: auto; }
 .credit-days .cd-day i { display: block; width: 100%; border-radius: 2px; background: var(--accent); }
 .credit-days .cd-note { margin-top: 4px; font-size: 10px; color: var(--faint); }
 /* what was left over time (#651): a line a window, an even burn dashed, now
-   upright; the range (or Off) is picked once, in the allowances' head */
-.quota-head .quota-trend { margin-right: 8px; }
-.quota-curve { margin-top: 10px; }
-.quota-curve .qc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 10.5px; color: var(--muted); }
-.quota-curve .qc-range { font-size: 10px; color: var(--faint); }
-.quota-curve .qc-plot { display: block; width: 100%; height: 52px; margin-top: 5px; overflow: hidden; }
-/* a click makes a curve larger, another back (TJHHHH on Discord) */
-.quota-curve .qc-plot { cursor: zoom-in; transition: height .15s ease; }
-.quota-curve.big .qc-plot { height: 168px; cursor: zoom-out; }
-.quota-curve .qc-plot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-@media (prefers-reduced-motion: reduce) { .quota-curve .qc-plot { transition: none; } }
-.balance-curve .qc-range { color: var(--muted); }
-.balance-curve .bc-pace { color: var(--faint); }
-.qc-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.qc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-/* a window far shorter than the span drawn (a 5-hour one over a week) is a
-   comb of drops: faint, and without its upright even burn */
-.qc-line.qc-short { stroke-width: 1; opacity: .45; }
-.qc-even { stroke-width: 1; stroke-dasharray: 3 3; opacity: .45; vector-effect: non-scaling-stroke; }
-.qc-now { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 1 2; vector-effect: non-scaling-stroke; }
-.quota-curve .qc-axis { display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.quota-curve .qc-legend { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 5px; font-size: 10.5px; color: var(--muted); }
-/* a key never breaks inside: a long name ends in … rather than its % on a line of its own */
-.qc-key { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; white-space: nowrap; }
-.qc-key > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.qc-key i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
-.qc-key b { color: var(--fg-2); font-weight: 600; font-variant-numeric: tabular-nums; }
-.quota-resets { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .quota-resets .text { margin-left: auto; flex: none; font-size: 11px; padding: 2px 7px; }
 .subscription-card.several .quota-resets:not([hidden]) + .subscription-account { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
 .reset-ask .reset-idle { color: var(--amber); }
@@ -1397,9 +1368,6 @@ body.panel .profiles #save { height: 25px; } /* the field's: the line keeps its 
 .pq-rn2 { display: flex; flex-direction: column; align-items: center; }
 .pq-rn2 > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 /* the first window's current cycle, a thin line across the card (#651) */
-.pq-spark-box { grid-column: 1 / -1; display: block; height: 16px; }
-.pq-spark { display: block; width: 100%; height: 16px; overflow: hidden; }
-.pq-spark .qc-line { stroke-width: 1.2; }
 /* a Codex account's rate-limit resets, under a hairline across the card */
 .pq-resets { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 5px; padding-top: 7px; border-top: 1px solid var(--line-2); font-size: 11px; font-variant-numeric: tabular-nums; }
 .resets-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2760,6 +2728,13 @@ html.theming, html.theming *, html.theming *::before, html.theming *::after {
   display: grid; grid-template-columns: inherit; gap: 10px 14px; align-items: start; padding: 14px 18px;
 }
 .modal .editor.framed > .ehead, .modal .editor.framed > .bar { flex: none; min-height: 48px; margin: 0; padding: 0 18px; }
+/* A long form's fields in parts: each part's name over its fields, a hairline
+   between the parts (a custom provider's editor, 2026-10-09). */
+.ebody > .e-sec {
+  grid-column: 1 / -1; display: flex; align-items: center; margin-top: 6px; padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+  font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+}
 .modal .editor.framed > .ehead { border-bottom: 1px solid var(--line-2); }
 .modal .editor.framed > .bar { border-top: 1px solid var(--line-2); }
 .modal .editor.framed > .editor-error { flex: none; padding: 8px 18px; border-top: 1px solid var(--line-2); }

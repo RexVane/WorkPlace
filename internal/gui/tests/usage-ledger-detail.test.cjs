@@ -175,6 +175,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
 
         // a refresh of the list keeps the rows open
         const n = refreshed.n;
+        await reader.click(p, p.locator("#ledTools > summary"));
         await reader.click(p, p.locator("#ledStatus .opt").nth(1)); // Failed: asks the server
         for (let i = 0; i < 60 && refreshed.n === n; i++) await p.waitForTimeout(40);
         await reader.click(p, p.locator("#ledStatus .opt").nth(0));

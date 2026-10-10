@@ -25,12 +25,11 @@
 
   const fmtK = (n) => {
     n = Math.max(0, Math.round(n || 0));
-    const short = (x, d) => x.toFixed(d).replace(/\.0+$/, "");
-    if (n >= 1e6) return short(n / 1e6, n >= 1e7 ? 1 : 2) + "M";
-    if (n >= 1e3) return short(n / 1e3, n >= 1e5 ? 0 : 1) + "K";
+    if (n >= 1e6) return dp2(n / 1e6) + "M";
+    if (n >= 1e3) return dp2(n / 1e3) + "K";
     return String(n);
   };
-  const pct = (x) => Math.round(x * 100) + "%";
+  const pct = (x) => dp2(x * 100) + "%";
   const median = (xs) => {
     if (!xs.length) return 0;
     const s = [...xs].sort((a, b) => a - b);

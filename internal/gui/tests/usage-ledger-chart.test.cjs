@@ -15,6 +15,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { test } = require("node:test");
 const { chromium, webkit } = require("playwright");
+const reader = require("./reader.cjs");
 
 const assets = path.resolve(__dirname, "../assets");
 const midnight = new Date();
@@ -140,6 +141,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await p.locator('[data-view="usage"]').first().click();
       await p.locator("#usageTab .opt").nth(1).click();
       if (variant !== "none") await p.locator("#ledRank .rk").first().waitFor();
+      if (variant !== "none") await p.locator("#ledChartOptions > summary").click();
+      await reader.click(p, p.locator("#ledTools > summary"));
+      if (variant !== "none") await reader.inView(p, p.locator("#ledKpi"));
       if (["many", "unpriced"].includes(variant)) await p.locator("#ledSplit .opt").nth(SPLIT.provider).click();
       return { p, errors, asked, exported, context };
     };
@@ -155,7 +159,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         const { p, errors, asked } = await open(lang, "light");
         // the strip of five totals
         assert.deepEqual(await p.locator("#ledKpi .k").allTextContents(), w.strip);
-        assert.equal(await p.locator("#ledKpi .blk").nth(0).getAttribute("title"), Math.round(allTokens).toLocaleString(lang === "zh" ? "zh-CN" : "en"));
+        assert((await p.locator("#ledKpi .blk").nth(0).getAttribute("title")).startsWith(Math.round(allTokens).toLocaleString(lang === "zh" ? "zh-CN" : "en")));
         const rate = TOTALS.cache_read / (TOTALS.input + TOTALS.cache_write + TOTALS.cache_read);
         assert.equal(await p.locator("#ledKpi .blk").nth(3).locator(".v").textContent(), (100 * rate).toFixed(1) + "%");
         assert.equal(parseFloat(await p.locator("#ledKpi .blk").nth(3).locator(".meter i").evaluate((i) => i.style.width)), parseFloat((100 * rate).toFixed(1)));

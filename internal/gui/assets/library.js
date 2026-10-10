@@ -757,7 +757,7 @@
       // only some (#741); one rtk couldn't give says why
       const g = rtk.gain;
       const gain = el("p", "lib-rtk-gain", g
-        ? t("{saved} tokens saved over {n} commands — {pct}% on average", { saved: tokens(g.saved), n: g.commands.toLocaleString(), pct: Math.round(g.pct) })
+        ? t("{saved} tokens saved over {n} commands — {pct}% on average", { saved: tokens(g.saved), n: g.commands.toLocaleString(), pct: dp2(g.pct) })
         : rtk.gainErr
           ? t("magpie couldn't read what RTK saved: {why}", { why: rtk.gainErr })
           : t("Nothing saved yet: the agents' commands go through RTK once it's switched on and the agent is restarted."));
@@ -876,7 +876,7 @@
       bar.append(saved, kept);
       const when = step === 7 ? t("week of {label}", { label: short(b.day) }) : short(b.day);
       bar.title = b.commands
-        ? t("{when} · {saved} tokens saved over {n} commands — {pct}%", { when, saved: tokens(b.saved), n: b.commands.toLocaleString(), pct: b.input ? Math.round(100 * b.saved / b.input) : 0 })
+        ? t("{when} · {saved} tokens saved over {n} commands — {pct}%", { when, saved: tokens(b.saved), n: b.commands.toLocaleString(), pct: b.input ? dp2((100 * b.saved) / b.input) : 0 })
         : t("{when} · nothing", { when });
       bars.append(bar);
       const end = i === k - 1 && (k - 1) % every >= every / 2;
@@ -886,7 +886,7 @@
     const key = (cls, text) => { const x = el("span", "lib-rtk-key"); x.append(el("i", cls), el("span", "", text)); return x; };
     foot.append(key("out", t("saved")), key("in", t("still sent")), el("span", "grow"),
       el("span", "", sum.commands
-        ? t("{saved} tokens saved over {n} commands — {pct}%", { saved: tokens(sum.saved), n: sum.commands.toLocaleString(), pct: sum.input ? Math.round(100 * sum.saved / sum.input) : 0 })
+        ? t("{saved} tokens saved over {n} commands — {pct}%", { saved: tokens(sum.saved), n: sum.commands.toLocaleString(), pct: sum.input ? dp2((100 * sum.saved) / sum.input) : 0 })
         : t("Nothing run through RTK in this time")));
     chart.append(head, bars, labels, foot);
     return chart;
@@ -945,8 +945,8 @@
     render();
   }
   function tokens(n) {
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    if (n >= 1e6) return dp2(n / 1e6) + "M";
+    if (n >= 1e3) return dp2(n / 1e3) + "k";
     return String(n);
   }
 

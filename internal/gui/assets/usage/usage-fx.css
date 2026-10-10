@@ -1,0 +1,40 @@
+/* Usage, in motion (usage-fx.js): what a refresh added, told a moment
+   beside its figure; the Overview's timeline stacked by model, with its
+   ranking beside it; a column under the pointer crossed at its total; a
+   request new to the list flashed once. Quiet: the numbers come first. */
+#view-usage .stats .kpi, #view-usage .led-strip .blk { position: relative; }
+.ux-delta { position: absolute; top: 11px; right: 12px; padding: 0 6px; border-radius: 5px; font-size: 10.5px; font-weight: 600; line-height: 17px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; color: var(--green); background: var(--green-soft); pointer-events: none; animation: uxdelta 2.6s ease-out forwards; }
+@keyframes uxdelta { 0% { opacity: 0; translate: 0 4px; } 10%, 78% { opacity: 1; translate: 0 0; } 100% { opacity: 0; } }
+
+/* the Overview's timeline, stacked by model */
+.ux-chart-note { margin: 0 5px 5px; font-size: 11px; color: var(--muted); }
+.ux-keys { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.ux-keys > * { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 2px 5px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; }
+.ux-keys button:hover { background: var(--pill); color: var(--fg); }
+.ux-keys span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ux-keys i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.ux-keys b { font-weight: 600; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+/* the column under the pointer, crossed at its total */
+.led-chart .ux-xh { stroke: var(--fg-2); stroke-width: 1; stroke-dasharray: 3 3; opacity: .65; pointer-events: none; }
+.led-chart .ux-xd { fill: var(--card); stroke: var(--fg); stroke-width: 1.5; pointer-events: none; }
+.led-chart .ux-ytag { position: absolute; z-index: 1; translate: 0 -50%; padding: 1px 6px; border-radius: 5px; background: var(--fg); color: var(--card); font-size: 10.5px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.led-chart .ux-ytag[hidden] { display: none; }
+
+/* a tab's page comes in as it is shown */
+.usage-pane:not([hidden]) { animation: uxpane .36s ease-out backwards; }
+@keyframes uxpane { from { opacity: 0; translate: 0 6px; } }
+
+/* the Sessions timeline: bars set in place move, bars drawn anew grow from the axis */
+#sessChart .bars > .bar > i { transform-origin: bottom; transition: height .5s var(--ease); animation: uxbar .5s var(--ease) both; }
+@keyframes uxbar { from { transform: scaleY(0); } }
+
+/* a request new to the list, flashed once */
+#ledWrap tr.led-row.ux-fresh > td { animation: uxfresh 1.8s ease-out; }
+@keyframes uxfresh { from { background-color: color-mix(in srgb, var(--accent) 16%, transparent); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ux-delta, #ledWrap tr.led-row.ux-fresh > td, .usage-pane:not([hidden]) { animation: none; }
+  #sessChart .bars > .bar > i { animation: none; transition: none; }
+  #view-usage .ux-delta, #view-usage .ux-xh, #view-usage .ux-xd, #view-usage .ux-ytag { display: none; }
+}

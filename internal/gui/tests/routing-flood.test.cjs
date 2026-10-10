@@ -50,7 +50,7 @@ function serve(lang, feed) {
     }
     if (url.pathname === "/api/gateway/history") return json({ cut: false, days: [], routes: [] });
     if (url.pathname === "/api/groups") return json({ models: [], groups: [], pools: [] });
-    if (url.pathname === "/api/providers") return json({ providers: [], excluded: [], gateway: { running: true, window: true, url: "http://127.0.0.1:3999" } });
+    if (url.pathname === "/api/providers") return json({ providers: [], presets: [], excluded: [], gateway: { running: true, window: true, url: "http://127.0.0.1:3999" } });
     if (url.pathname.startsWith("/api/")) return json({});
     const file = path.join(assets, url.pathname === "/" ? "index.html" : url.pathname);
     const contentType = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" }[path.extname(file)];
@@ -125,16 +125,22 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         assert.equal(feed.q.length, 0, "the page must have taken every update");
         await page.waitForTimeout(1500);
 
-        // back in sight: the birds in the sky, looked at every 40ms
+        // Sample rendered frames: a timer can see queued packets while a
+        // covered WebKit window still hasn't drawn its first resumed frame.
         await page.evaluate(() => {
           window.__most = 0;
-          window.__look = setInterval(() => { window.__most = Math.max(window.__most, document.querySelectorAll(".rt-sky .rt-flier").length); }, 40);
+          const look = () => {
+            window.__most = Math.max(window.__most, document.querySelectorAll('.rt-sky .pkt:not(.gone):not([visibility="hidden"])').length);
+            window.__look = requestAnimationFrame(look);
+          };
+          window.__look = requestAnimationFrame(look);
         });
         await how.show(page);
         await page.waitForTimeout(3000);
-        const most = await page.evaluate(() => { clearInterval(window.__look); return window.__most; });
-        // at most the ones under way: a carrier each, and one let go
-        assert(most <= 2 * LIVE, `${most} magpies flew at once after coming back (at most ${2 * LIVE})`);
+        const most = await page.evaluate(() => { cancelAnimationFrame(window.__look); return window.__most; });
+        // At most the ones under way: one visible request light each.
+        // Packets queued while frames were suspended have never been shown.
+        assert(most <= LIVE, `${most} requests flew at once after coming back (at most ${LIVE})`);
         assert(most >= 1, "the requests still under way must fly");
         // and every request is listed
         await page.waitForFunction((n) => document.querySelectorAll(".rt-req").length === n, 1 + DONE + LIVE);

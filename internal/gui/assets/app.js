@@ -2232,7 +2232,7 @@ function fillModelsEntry(b, a) {
   b.title = t("Pick which models {agent} lists", { agent: a.name });
 }
 
-const ctxShort = (n) => !n ? "" : n >= 1e6 ? (n % 1e6 ? (n / 1e6).toFixed(1) : n / 1e6) + "M" : Math.round(n / 1e3) + "K";
+const ctxShort = (n) => !n ? "" : n >= 1e6 ? dp2(n / 1e6) + "M" : dp2(n / 1e3) + "K";
 
 let agentModels = null;
 // the list being fetched, before its box is up: a second click on the line
@@ -3944,7 +3944,7 @@ function freeBadge(plan) {
 // client shows it (a free one's beside its FREE)
 function rateTag(rate = 0, was = 0) {
   if (!(rate > 0) && !(was > rate)) return null;
-  const times = (n) => (n < 0.01 ? "<0.01" : String(+n.toFixed(2))) + "×";
+  const times = (n) => (n < 0.01 ? "<0.01" : dp2(n)) + "×";
   const tag = el("span", "badge rate");
   if (was > rate) tag.append(el("s", "", times(was)));
   if (rate > 0) tag.append(el("span", "", times(rate)));
@@ -3961,7 +3961,7 @@ function rateTag(rate = 0, was = 0) {
 function contextTag(n, name) {
   if (!(n >= 1e6) || /\b\d+M\b/.test(name || "")) return null;
   const m = n / 1e6;
-  const tag = el("span", "badge ctx", (Number.isInteger(m) ? m : m.toFixed(1)) + "M");
+  const tag = el("span", "badge ctx", dp2(m) + "M");
   tag.title = t("holds {n} tokens", { n: n.toLocaleString() });
   return tag;
 }
@@ -6641,6 +6641,14 @@ function tile(pr) {
 }
 
 let fieldIDs = 0;
+// a part of an editor's fields, named over them: one row of the grid's own,
+// a hairline above it, so a long form reads in parts rather than one column
+// (the reader's order, 2026-10-09)
+function secHead(name) {
+  const b = el("div", "e-sec", name);
+  b.setAttribute("role", "presentation");
+  return b;
+}
 function field(label, control, hint) {
   const l = el("label", "", label);
   const wrap = el("div");
@@ -7898,9 +7906,30 @@ function drawEditor(p, presetID) {
   if (p?.keyList?.filter((k) => k.on).length > 1) ed.append(...renderRouting(p));
   else ed.append(...field(t("API key"), keyWrap, isNew ? t("Kept in ~/.config/magpie/providers.json, readable by you alone. Nothing is read from your shell.") : ""));
 
-  // A user-defined provider can have its own picture; presets keep theirs.
-  if (custom) ed.append(...field(t("Icon"), iconPicker(ed), ""));
+  // A custom provider is asked what it serves before how it is reached: the
+  // models are picked first, then how long a request they take. Presets keep
+  // their own order (the models are read from the preset's list below).
+  if (custom) {
+    ed.append(secHead(t("Models")));
+    if (p) ed.append(...field(t("Models"), renderModels(p), ""));
+    else {
+      const ex = input(draft.extra.join(", "), t("model ids, comma separated · e.g. gpt-5.5, claude-sonnet-5"));
+      const pick = addFormModels(ex);
+      ex.oninput = () => { draft.extra = ex.value.split(/[,\s]+/).filter(Boolean); pick.draw(); };
+      ed.append(...field(t("Models"), pick.box, t("Optional: Fetch models to pick from the vendor's list, or type ids; none picked, magpie asks for the list after saving.")));
+    }
+    if (p?.drawIds?.length) ed.append(...renderDrawers(p));
+    if (!decideOnly(p || pr)) {
+      const cx = input(draft.contexts || "", t("e.g. 128k · or gpt-6=1m, comma separated"));
+      ed.append(...field(t("Context window"), contextPicks(p, cx), t("How long a request the models take, told to the agents; empty leaves it to the vendor and models.dev")));
+      ed.append(...outputField());
+      ed.append(...compactField());
+    }
+  }
 
+  // what the provider is reached through, then what it costs: a custom
+  // provider's long form reads in parts (the reader's order, 2026-10-09)
+  if (custom) ed.append(secHead(t("Network and limits")));
   // Request headers of the user's own, for a preset's provider as much as a
   // custom one — which workspace a key is for, who the app is; signed-in
   // accounts returned above use the agent's own authentication headers.
@@ -7916,6 +7945,7 @@ function drawEditor(p, presetID) {
   if (perKey) proxies.append(perKey);
   ed.append(...field(t("Proxy"), proxies));
   ed.append(...concurrencyField(p));
+  if (custom) ed.append(secHead(t("Billing and account")));
   ed.append(...priceRateField());
 
   if (p?.cline || (isNew && pr?.id === "clinepass")) ed.append(...upstreamField());
@@ -8034,9 +8064,11 @@ function drawEditor(p, presetID) {
     ed.append(...field(t(pr.regionLabel || "Region"), seg, t("which endpoint {p} is reached through", { p: pr.name })));
   }
 
-  if (p) ed.append(...field(t("Models"), renderModels(p), ""));
-  if (p?.drawIds?.length) ed.append(...renderDrawers(p));
-  {
+  // a custom provider's models were picked at the head of the form; a
+  // preset's are listed here, where its own order has them
+  if (p && !custom) ed.append(...field(t("Models"), renderModels(p), ""));
+  if (!custom && p?.drawIds?.length) ed.append(...renderDrawers(p));
+  if (!custom) {
     // the window agents are told a model has, over what the vendor or
     // models.dev says: one for all of them, and model=size for one
     const cx = input(draft.contexts || "", t("e.g. 128k · or gpt-6=1m, comma separated"));
@@ -8045,12 +8077,6 @@ function drawEditor(p, presetID) {
     if (!decideOnly(p || pr)) ed.append(...compactField());
   }
   if (p && !decideOnly(p)) ed.append(...field(t("Fallback"), renderFallback(p), fallbackHint(p)));
-  else if (custom) {
-    const ex = input(draft.extra.join(", "), t("model ids, comma separated · e.g. gpt-5.5, claude-sonnet-5"));
-    const pick = addFormModels(ex);
-    ex.oninput = () => { draft.extra = ex.value.split(/[,\s]+/).filter(Boolean); pick.draw(); };
-    ed.append(...field(t("Models"), pick.box, t("Optional: Fetch models to pick from the vendor's list, or type ids; none picked, magpie asks for the list after saving.")));
-  }
 
   // Jev's endpoint can be the one its gateway's docs give — Cloudflare's
   // names the account, …/accounts/<id>/ai/run — in place of the preset's
@@ -8088,6 +8114,13 @@ function drawEditor(p, presetID) {
     };
     refreshEndpoints();
     ed.append(...field(t("Endpoints"), ebox, ""));
+  }
+
+  // a custom provider's picture is the least of it: last, after the fields
+  // that decide whether it works
+  if (custom) {
+    ed.append(secHead(t("Appearance")));
+    ed.append(...field(t("Icon"), iconPicker(ed), ""));
   }
 
   if (custom) {
@@ -11428,7 +11461,7 @@ function quotaText(w) {
   if (w.unlimited) return t("Unlimited");
   const used = Math.max(0, Math.min(100, w.used));
   const n = quotaLeft ? 100 - used : used;
-  const pct = t(quotaLeft ? "{n} left" : "{n} used", { n: (Number.isInteger(n) ? n : n.toFixed(1)) + "%" });
+  const pct = t(quotaLeft ? "{n} left" : "{n} used", { n: dp2(n) + "%" });
   const count = quotaCount(w);
   return count ? count + " · " + pct : pct;
 }
@@ -12486,7 +12519,6 @@ const PERIODS = [["today", "Today"], ["7d", "7 days"], ["30d", "30 days"], ["all
 // never waits for them. They don't depend on the period either.
 let quotas = null;
 let quotasAt = 0; // when they came in
-let quotaHist = []; // each account's windows over time, for the curves (#651)
 // asked: the reader opened the page, so a Claude account's usage is read
 // at once, by running Claude Code's own /usage, rather than when its last
 // reading is due (every 5 to 15 minutes, at random, once Claude Code was used).
@@ -12522,10 +12554,10 @@ function loadQuotas(asked, again) {
   if (!again) quotasTries = 0;
   let reading = false, same = false;
   const p = Promise.resolve(quotasLoading).catch(() => {})
-    .then(() => Promise.all([api("usage/quotas" + (asked ? "?asked=1" : ""), undefined, (h) => { reading = h.get("X-Magpie-Reading") === "1"; }), api("usage/quotas/history?days=35").catch(() => null)]))
-    .then(([q, h]) => {
-      same = !!again && !!quotas && JSON.stringify(q || []) === JSON.stringify(quotas) && (!h || JSON.stringify(h) === JSON.stringify(quotaHist));
-      quotas = q || []; quotasAt = Date.now(); if (h) quotaHist = h;
+    .then(() => api("usage/quotas" + (asked ? "?asked=1" : ""), undefined, (h) => { reading = h.get("X-Magpie-Reading") === "1"; }))
+    .then((q) => {
+      same = !!again && !!quotas && JSON.stringify(q || []) === JSON.stringify(quotas);
+      quotas = q || []; quotasAt = Date.now();
     }, () => { quotas = quotas || []; reading = false; })
     .finally(() => {
       if (quotasLoading === p) quotasLoading = null;
@@ -12574,7 +12606,18 @@ function renderUsageLoading() {
   $("#usageNote").textContent = "";
 }
 
-// a count as a short number: 133M, and 1.33 亿, 68.1 万 in Chinese with
+// every figure a page shows keeps two places: 0.01 is the smallest step, the
+// third place rounded away (the reader's rule, 2026-10-09)
+const dp2 = (n) => (+n || 0).toFixed(2);
+// a cost as the pages write it: two places from 0.01 up, and a smaller one in
+// four (or six) — a call costing a fraction of a cent reads as itself rather
+// than the $0.00 two places alone would round it to (the reader, 2026-10-09)
+function costText(c) {
+  const a = Math.abs(c);
+  if (!a || a >= 0.01) return dp2(c);
+  return c.toFixed(a >= 0.0001 ? 4 : 6);
+}
+// a count as a short number: 133.00M, and 1.33 亿, 68.10 万 in Chinese with
 // Settings' 万/亿 units (chineseUnits), 億 and 萬 in Traditional — every
 // count on the Usage page and in the panel, tokens or requests, says it
 // this one way
@@ -12582,15 +12625,13 @@ let chineseUnits = false;
 function fmtN(n) {
   if ((locale === "zh" || locale === "zh-TW") && chineseUnits) {
     const tw = locale === "zh-TW";
-    if (n >= 1e8) return +(n / 1e8).toFixed(2) + (tw ? " 億" : " 亿");
-    if (n >= 1e4) return +(n / 1e4).toFixed(1) + (tw ? " 萬" : " 万");
+    if (n >= 1e8) return dp2(n / 1e8) + (tw ? " 億" : " 亿");
+    if (n >= 1e4) return dp2(n / 1e4) + (tw ? " 萬" : " 万");
     return String(n);
   }
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-  if (n >= 1e7) return Math.round(n / 1e6) + "M";
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e5) return Math.round(n / 1e3) + "K";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  if (n >= 1e9) return dp2(n / 1e9) + "B";
+  if (n >= 1e6) return dp2(n / 1e6) + "M";
+  if (n >= 1e3) return dp2(n / 1e3) + "K";
   return String(n);
 }
 // currency is Settings' choice of what a cost shows as: usd (its own price)
@@ -12603,7 +12644,7 @@ function fmtCost(t) {
   if (!t.cost && t.unpriced) return "";
   let c = t.cost, sign = "$";
   if (currency === "cny" && fx.rate > 0) { c = c * fx.rate; sign = "¥"; }
-  const s = c >= 100 ? c.toFixed(0) : c >= 1 ? c.toFixed(2) : c.toFixed(3);
+  const s = costText(c);
   return sign + s + (t.unpriced ? "+" : "");
 }
 // renderCosts redraws whatever on the Usage page shows a cost, once the
@@ -12638,7 +12679,6 @@ function renderQuotas() {
     }
     slide(mode, "quotaMode");
   }
-  renderQuotaTrend();
   if (!quotas) {
     subscriptions.hidden = false;
     for (let i = 0; i < 2; i++) {
@@ -12711,16 +12751,10 @@ function renderQuotas() {
       // and the switch for it, on the card rather than only in Settings
       // (#694); the switch on the first card of each vendor's
       if (sub.checkins) card.append(checkinRow(sub, sub === subs.find((x) => x.checkins && (x.checkinBy || "") === (sub.checkinBy || "")), subs));
-      // what was left over time, against an even burn (#651)
-      const curve = !brief && !sub.error && quotaCurve(sub);
-      if (curve) card.append(curve);
       // WorkBuddy's credits, day by day, as magpie counted them (#568)
       if (!brief && sub.daily && !sub.error) card.append(creditDays(sub));
       // what is left besides the windows, under them
       if (sub.balance && sub.windows?.length && !sub.error) card.append(balanceRow(sub, "What is left on the account besides its windows", false));
-      // the balance over time, and when it runs out at that pace
-      const spend = !brief && !sub.error && balanceCurve(sub);
-      if (spend) card.append(spend);
       // when the windows were read: "Updated 3 min ago", or the time of
       // ones standing in for a reading that failed just now (#802; a
       // balance alone says it in its row)
@@ -12982,7 +13016,11 @@ function creditDays(sub) {
     d.setDate(d.getDate() - i);
     list.push({ day: key(d), date: d, used: by.get(key(d)) || 0, known: key(d) >= since });
   }
-  const num = (v) => (Math.round(v * 100) / 100).toLocaleString(intlLang());
+  // a credit figure is money too: two places, four under a cent
+  const num = (v) => {
+    const digits = Math.abs(v) >= 0.01 || !v ? 2 : Math.abs(v) >= 0.0001 ? 4 : 6;
+    return v.toLocaleString(intlLang(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  };
   const dayName = (d) => d.toLocaleDateString(intlLang(), { month: "short", day: "numeric" });
   const sum = list.reduce((a, d) => a + d.used, 0);
   const head = el("div", "cd-head");
@@ -13007,302 +13045,14 @@ function creditDays(sub) {
   return box;
 }
 
-// What was left of an account's windows over time (#651), from magpie's
-// readings of them (and those of the computers sharing usage with it): a
-// line a window, the percent left, broken where the window started again;
-// a dashed line from the window's start to its reset is an even burn, and
-// a thin upright one is now. "2 days" is the last two days; "Cycle" the
-// current cycle of the account's longest window, its start to its reset;
-// "Off" draws none, on the Usage page or on the tray's cards (ARNO on
-// Discord: 额度面板变得非常混乱和难以观看了). One pick in the allowances'
-// head turns every card, remembered, and the tray panel follows it.
-let quotaRange = "cycle";
-try { const v = localStorage.getItem("magpie.quotaRange"); if (v === "2d" || v === "off") quotaRange = v; } catch {}
-const QUOTA_RANGES = [["off", "Off", "No curves on the cards"], ["2d", "2 days", "The last two days"], ["cycle", "Cycle", "The current cycle, from the window's start to its reset"]];
-addEventListener("storage", (e) => {
-  if (e.key !== "magpie.quotaRange") return;
-  const v = QUOTA_RANGES.some(([id]) => id === e.newValue) ? e.newValue : "cycle";
-  if (v !== quotaRange) { quotaRange = v; renderQuotas(); }
-});
-// renderQuotaTrend: the allowances' head's pick of the curves' range, there
-// once some account has readings to draw
-function renderQuotaTrend() {
-  const b = $("#quotaTrend");
-  if (!b) return;
-  b.hidden = !quotas?.some((q) => !q.error && (quotaLines(q).length || q.balanceTrend?.points?.length > 1));
-  if (b.hidden) return;
-  const cur = QUOTA_RANGES.find(([id]) => id === quotaRange);
-  b.classList.toggle("set", quotaRange !== "off");
-  b.replaceChildren(el("span", "", t("Trends: {range}", { range: t(cur[1]) })), svg(CHEV, 11, 1.6));
-  b.title = t("What was left over time, under each account's meters");
-  b.onclick = (e) => {
-    e.stopPropagation();
-    if (b.classList.contains("open")) return closeProtoMenu();
-    openProtoMenu(b, QUOTA_RANGES.map(([v, name, note]) => ({ v, name, note })), quotaRange, setQuotaRange, "Left over time", "sess-menu");
-  };
-}
-
-function quotaHistOf(sub) {
-  const user = (sub.user || "").toLowerCase();
-  return quotaHist?.find?.((h) => h.provider === sub.provider && h.user === user);
-}
-// the lines of sub's windows, as its card lists them, with points
-function quotaLines(sub) {
-  const h = quotaHistOf(sub);
-  if (!h) return [];
-  const out = [];
-  for (const w of sub.windows || []) {
-    if (w.unlimited || w.family) continue;
-    // a pool's window is kept under the pool's name and its own
-    const name = w.pool ? w.pool + " · " + w.name : w.name;
-    const l = h.lines.find((x) => x.name === name);
-    if (!l?.points?.length || out.some((x) => x.name === l.name)) continue;
-    out.push({ name, label: w.pool ? w.pool + " · " + t(w.name) : t(w.name), window: w, points: l.points.map((p) => ({
-      at: Date.parse(p.at), left: p.left,
-      start: p.start ? Date.parse(p.start) : null, reset: p.resetsAt ? Date.parse(p.resetsAt) : null,
-    })) });
-  }
-  return out;
-}
-// quotaCycleBreak: whether b, read after a, is of its window started again,
-// as magpie's own record of them says (quota_history.go's newCycle)
-function quotaCycleBreak(a, b) {
-  if (a.reset == null && b.reset == null) return b.left > a.left + 5;
-  if (a.reset == null || b.reset == null) return true;
-  if (a.reset <= b.at) return true;
-  const moved = b.reset - a.reset, slack = 5 * 60e3;
-  return moved > b.at - a.at + slack || moved < -slack;
-}
-// the current cycle of a line: its start and its reset, the window's as
-// the card has it, else its last reading's
-function quotaCycle(l, now) {
-  const last = l.points[l.points.length - 1];
-  let reset = l.window.resetsAt ? Date.parse(l.window.resetsAt) : last.reset;
-  let start = last.start != null && last.reset != null && reset != null ? last.start + (reset - last.reset) : last.start;
-  if (start == null) { // its first reading of this cycle
-    let i = l.points.length - 1;
-    while (i > 0 && !quotaCycleBreak(l.points[i - 1], l.points[i])) i--;
-    start = l.points[i].at;
-  }
-  if (reset != null && reset <= now) reset = null;
-  return { start: Math.min(start, now), reset };
-}
-function quotaSpan(lines, range, now) {
-  if (range === "2d") return [now - 48 * 3600e3, now];
-  let x0 = Infinity, x1 = now;
-  for (const l of lines) {
-    const c = quotaCycle(l, now);
-    x0 = Math.min(x0, c.start);
-    if (c.reset) x1 = Math.max(x1, c.reset);
-  }
-  if (!(x0 < now)) x0 = now - 3600e3;
-  return [x0, x1];
-}
-// quotaPaths: a line's points in [x0, x1] as path data on a w×h box, a
-// new subpath at each cycle's start; the point before x0 and the one after
-// x1 go along, so the line reaches the box's edges
-function quotaPaths(points, x0, x1, w, h) {
-  const X = (t) => ((t - x0) / (x1 - x0)) * w, Y = (v) => h - (Math.max(0, Math.min(100, v)) / 100) * h;
-  let d = "", prev = null;
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    const next = points[i + 1];
-    if (p.at < x0 && (!next || next.at < x0 || quotaCycleBreak(p, next))) continue;
-    if (prev && p.at > x1 && prev.at > x1) break;
-    const brk = !prev || quotaCycleBreak(prev, p);
-    d += (brk ? "M" : "L") + X(p.at).toFixed(1) + " " + Y(p.left).toFixed(1);
-    if (brk && (!points[i + 1] || quotaCycleBreak(p, points[i + 1]))) d += "h0.01"; // a lone point is a dot
-    prev = p;
-  }
-  return d;
-}
-function quotaTimeText(at, now) {
-  const d = new Date(at), lang = intlLang();
-  if (Math.abs(at - now) < 60e3) return t("Now");
-  const sameDay = d.toDateString() === new Date(now).toDateString();
-  const time = d.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit", hour12: false });
-  return sameDay ? time : d.toLocaleDateString(lang, { month: "short", day: "numeric" }) + " " + time;
-}
-// drawQuotaPlot puts lines' curves for [x0, x1] in svg, a w×h box:
-// the grid, the even burns, the lines, and now.
-function drawQuotaPlot(g, lines, x0, x1, w, h, now, thin) {
-  g.replaceChildren();
-  if (!thin) for (const v of [0, 50, 100]) g.append(sv("line", { x1: 0, x2: w, y1: h - (v / 100) * h, y2: h - (v / 100) * h, class: "qc-grid" }));
-  const X = (t) => ((t - x0) / (x1 - x0)) * w;
-  lines.forEach((l, i) => {
-    const color = `var(--c${(i % 7) + 1})`;
-    const c = quotaCycle(l, now);
-    // a window far shorter than the span (a 5-hour one over a week) is
-    // drawn faint, without its even burn, an all but upright dash
-    const short = !thin && c.reset && c.reset - c.start < (x1 - x0) / 12;
-    if (c.reset && c.start < c.reset && !short) {
-      const e = sv("line", { x1: X(c.start), y1: 0, x2: X(c.reset), y2: h, class: "qc-even" }, { stroke: color });
-      g.append(e);
-    }
-    const d = quotaPaths(l.points, x0, x1, w, h);
-    if (d) g.append(sv("path", { d, class: "qc-line" + (short ? " qc-short" : ""), "data-name": l.name }, { stroke: color }));
-  });
-  if (now >= x0 && now <= x1) g.append(sv("line", { x1: X(now), x2: X(now), y1: 0, y2: h, class: "qc-now" }));
-}
-// quotaCurve: an account's windows over time, under its meters, with the
-// range turned for every card at once
-function quotaCurve(sub) {
-  if (quotaRange === "off") return null;
-  const lines = quotaLines(sub);
-  if (!lines.length) return null;
-  const box = el("div", "quota-curve");
-  const head = el("div", "qc-head");
-  const range = el("span", "qc-range");
-  head.append(el("span", "", t("Left over time")), range);
-  // what the dashes are isn't plain from the plot (John on Discord asked)
-  box.title = t("Solid: what was left. Dashed: an even pace, full at the cycle's start to empty at its reset; a line above its dashes lasts the cycle, one below runs out before the reset.");
-  const W = 300, H = 60;
-  const g = sv("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", class: "qc-plot", role: "img" });
-  curveZoom(box, g);
-  const axis = el("div", "qc-axis");
-  const legend = el("div", "qc-legend");
-  lines.forEach((l, i) => {
-    const k = el("span", "qc-key");
-    const sw = el("i");
-    sw.style.background = `var(--c${(i % 7) + 1})`;
-    const last = l.points[l.points.length - 1];
-    k.append(sw, el("span", "", l.label), el("b", "", Math.round(last.left) + "%"));
-    k.title = [t("{name}: {n} left, read {when}", { name: l.label, n: Math.round(last.left) + "%", when: quotaTimeText(last.at, Date.now()) }),
-      "", t("Latest readings:"), ...quotaReadings(l, Date.now())].join("\n");
-    legend.append(k);
-  });
-  box.draw = () => {
-    const now = Date.now();
-    const [x0, x1] = quotaSpan(lines, quotaRange, now);
-    drawQuotaPlot(g, lines, x0, x1, W, H, now);
-    const r = t(quotaRange === "2d" ? "2 days" : "Cycle");
-    range.textContent = r;
-    g.setAttribute("aria-label", t("Left over time") + " · " + r);
-    axis.replaceChildren(el("span", "", quotaTimeText(x0, now)), el("span", "", quotaTimeText(x1, now)));
-  };
-  box.append(head, g, axis, legend);
-  box.draw();
-  return box;
-}
-// quotaReadings: a line's last eight readings, newest first, each what was
-// left and when it was read (#802), a line each, ↻ where the window
-// started again; for its legend key's title, the card keeping no control
-// of its own
-function quotaReadings(l, now) {
-  const pts = l.points.slice(-8);
-  return pts.map((p, i) => (i > 0 && quotaCycleBreak(pts[i - 1], p) ? "↻ " : "") + Math.round(p.left) + "% · " + quotaTimeText(p.at, now)).reverse();
-}
-// curveZoom: a curve made larger on a click, or Enter, and back on the
-// next (TJHHHH on Discord); the page stays where it is
-function curveZoom(box, g) {
-  g.setAttribute("tabindex", "0");
-  g.setAttribute("aria-expanded", "false");
-  const flip = (e) => {
-    e.stopPropagation();
-    const big = box.classList.toggle("big");
-    g.setAttribute("aria-expanded", String(big));
-  };
-  g.addEventListener("click", flip);
-  g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(e); } });
-}
 // balanceAmount: v written as the card's balance writes its amount, "¥"
 // or "$" before it, "credits" after
 function balanceAmount(sub, v) {
   const m = (sub.balance || "").match(/^(.*?)-?\d[\d,]*(?:\.\d+)?(.*)$/);
-  const n = v.toLocaleString(intlLang(), { minimumFractionDigits: Math.abs(v) < 100 ? 2 : 0, maximumFractionDigits: 2 });
+  const digits = Math.abs(v) >= 0.01 || !v ? 2 : Math.abs(v) >= 0.0001 ? 4 : 6;
+  const n = v.toLocaleString(intlLang(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
   return m ? m[1] + n + m[2] : n;
 }
-// balanceCurve: a key's balance over time, as magpie read it, under its
-// figure on the Usage page (TJHHHH on Discord): the line, the least-squares
-// line through it since the last top-up dashed on to where it meets zero
-// when that is near, and when it runs out at that pace in the head. The
-// range the allowances' curves have ("2 days", or all it has: two weeks);
-// none while they are off, or with one reading only.
-function balanceCurve(sub) {
-  if (quotaRange === "off") return null;
-  const tr = sub.balanceTrend;
-  if (!tr?.points?.length || tr.points.length < 2) return null;
-  const pts = tr.points.map((p) => ({ at: Date.parse(p.at), v: p.amount }));
-  const box = el("div", "quota-curve balance-curve");
-  const head = el("div", "qc-head");
-  const out = tr.runsOut ? Date.parse(tr.runsOut) : null;
-  const pace = el("span", "qc-range");
-  head.append(el("span", "", t("Balance over time")), pace);
-  box.title = t("Solid: the balance as magpie read it. Dashed: a straight line fitted through it since the last top-up, carried on to where it runs out. Click to enlarge.");
-  const W = 300, H = 60;
-  const g = sv("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", class: "qc-plot", role: "img" });
-  curveZoom(box, g);
-  const axis = el("div", "qc-axis");
-  const legend = el("div", "qc-legend");
-  const k = el("span", "qc-key");
-  const sw = el("i");
-  sw.style.background = "var(--c1)";
-  const last = pts[pts.length - 1];
-  k.append(sw, el("span", "", t("Balance")), el("b", "", balanceAmount(sub, last.v)));
-  k.title = [t("Latest readings:"), ...pts.slice(-8).reverse().map((p) => balanceAmount(sub, p.v) + " · " + quotaTimeText(p.at, Date.now()))].join("\n");
-  legend.append(k);
-  if (tr.perDay > 0) legend.append(el("span", "qc-key bc-pace", t("about {amount} a day", { amount: balanceAmount(sub, tr.perDay) })));
-  box.draw = () => {
-    const now = Date.now();
-    let x0 = quotaRange === "2d" ? now - 48 * 3600e3 : pts[0].at, x1 = now;
-    if (!(x0 < now)) x0 = now - 3600e3;
-    // the dashes reach zero when it is no further off than what is shown
-    if (out && out > now && out - now <= now - x0) x1 = out;
-    const top = Math.max(...pts.filter((p) => p.at >= x0).map((p) => p.v), last.v, tr.fitStart || 0) * 1.08 || 1;
-    const X = (at) => ((at - x0) / (x1 - x0)) * W, Y = (v) => H - (Math.max(0, Math.min(top, v)) / top) * H;
-    g.replaceChildren();
-    for (const f of [0, 0.5, 1]) g.append(sv("line", { x1: 0, x2: W, y1: H - f * H, y2: H - f * H, class: "qc-grid" }));
-    if (tr.fitFrom) {
-      const from = Date.parse(tr.fitFrom), slope = (tr.fitNow - tr.fitStart) / (now - from || 1);
-      const end = out && x1 === out ? out : now;
-      g.append(sv("line", { x1: X(from), y1: Y(tr.fitStart), x2: X(end), y2: Y(tr.fitStart + slope * (end - from)), class: "qc-even bc-fit" }, { stroke: "var(--c1)" }));
-    }
-    let d = "";
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i], next = pts[i + 1];
-      if (p.at < x0 && next && next.at < x0) continue;
-      d += (d ? "L" : "M") + X(p.at).toFixed(1) + " " + Y(p.v).toFixed(1);
-    }
-    if (d) g.append(sv("path", { d, class: "qc-line" }, { stroke: "var(--c1)" }));
-    if (x1 > now) g.append(sv("line", { x1: X(now), x2: X(now), y1: 0, y2: H, class: "qc-now" }));
-    pace.textContent = out ? t("Runs out {in} at this pace", { in: untilText(Math.max(out, now + 60e3)) }) : "";
-    pace.title = out ? new Date(out).toLocaleString() : "";
-    g.setAttribute("aria-label", t("Balance over time") + (out ? " · " + pace.textContent : ""));
-    axis.replaceChildren(el("span", "", quotaTimeText(x0, now)), el("span", "", quotaTimeText(x1, now)));
-  };
-  box.append(head, g, axis, legend);
-  box.draw();
-  return box;
-}
-function setQuotaRange(id) {
-  if (id === quotaRange) return;
-  const was = quotaRange;
-  quotaRange = id;
-  try { localStorage.setItem("magpie.quotaRange", id); } catch {}
-  // turned on or off, the cards are made again; a range redraws them
-  if (was === "off" || id === "off") return renderQuotas();
-  renderQuotaTrend();
-  for (const b of document.querySelectorAll(".quota-curve")) b.draw?.();
-}
-// quotaSpark: the tray card's thin line of a window's current cycle, the
-// even burn faint under it; none while the curves are off
-function quotaSpark(q, w) {
-  if (quotaRange === "off") return null;
-  const lines = quotaLines({ ...q, windows: [w.window ? { ...w, name: w.window } : w] });
-  if (!lines.length) return null;
-  const now = Date.now(), c = quotaCycle(lines[0], now);
-  const x1 = c.reset || now;
-  if (!(c.start < x1)) return null;
-  const W = 200, H = 16;
-  const g = sv("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", class: "pq-spark", role: "img" });
-  g.setAttribute("aria-label", t("{name}: this cycle", { name: t(w.name) }));
-  drawQuotaPlot(g, lines, c.start, x1, W, H, now, true);
-  const s = el("span", "pq-spark-box");
-  s.title = t("{name}: what was left this cycle, against an even burn", { name: t(w.name) });
-  s.append(g);
-  return s;
-}
-
 // planTerm says when a plan's paid time ends: renewed then, over, or
 // either (the vendor doesn't say which), as short as a panel row needs.
 function planTerm(q) {
@@ -13638,7 +13388,7 @@ function renderPanelUse() {
     blk("Requests", ledNum(l.calls), l.errors ? t("{n} failed", { n: ledNum(l.errors) }) : t("none failed"), "", l.errors ? "bad" : "");
     const c = fmtCost(l);
     blk("Cost", c ? "≈" + c : "—", l.unpriced ? t("{n} unpriced", { n: l.unpriced }) : t("effective prices"), c ? "cost" : "");
-    blk("Cache hit rate", prompt ? Math.round((100 * l.cache_read) / prompt) + "%" : "—", t("of the prompt"));
+    blk("Cache hit rate", prompt ? dp2((100 * l.cache_read) / prompt) + "%" : "—", t("of the prompt"));
     const card = el("div", "pu-card");
     const head = el("div", "led-bar");
     const met = el("div", "segs");
@@ -13949,7 +13699,7 @@ function panelQuotaCard(q) {
     const r = el("span", "pq-ring" + (used >= 90 ? " full" : ""));
     const dial = el("span", "pq-dial");
     dial.style.setProperty("--p", quotaFill(w));
-    dial.append(el("b", "", quotaFill(w) + "%"));
+    dial.append(el("b", "", dp2(quotaLeft ? 100 - used : used) + "%"));
     // a pool's ring: its first word over its span, too long for one line
     const rn = el("span", "pq-rn", w.window ? undefined : ringName(w));
     if (w.window) {
@@ -13967,9 +13717,6 @@ function panelQuotaCard(q) {
   }
   card.append(rings);
   if (balance) card.append(balance);
-  // the first window's cycle, a thin line under the card (#651)
-  const spark = ws[0] && !ws[0].tiers ? quotaSpark(q, ws[0]) : null;
-  if (spark) card.append(spark);
   if (q.asOf) card.append(el("span", "pq-sub pq-asof", asOfText(q, true)));
   if (q.resets?.count) {
     const r = el("div", "pq-resets");
@@ -14610,6 +14357,41 @@ function fitChartLabels() {
 }
 new ResizeObserver(fitChartLabels).observe($("#view-usage"));
 
+// Overview and Requests share the five summary cells, but keep their own
+// totals: Overview counts gateway input/output; Requests also counts cache.
+function drawUsageKpis(host, u, overview = false) {
+  host.replaceChildren();
+  const block = (key, label, value, sub, title, cls = "") => {
+    const b = el("div", "blk" + (overview ? " kpi" : ""));
+    b.dataset.metric = key;
+    if (title) b.title = title;
+    b.append(el("span", "k", t(label)), el("b", "v" + (cls ? " " + cls : ""), value));
+    if (sub) b.append(el("small", "sub", sub));
+    host.append(b);
+    return b;
+  };
+  const total = overview ? tokensOf(u) : allTokens(u);
+  const cache = (u.cache_read || 0) + (u.cache_write || 0);
+  block("tokens", "Tokens", fmtN(total), t("{a} in · {b} out", { a: fmtN(u.input), b: fmtN(u.output) }),
+    ledNum(total) + " · " + t("{a} cache", { a: fmtN(cache) }) + (u.reasoning ? " · " + t("{n} reasoning, inside output", { n: fmtN(u.reasoning) }) : ""));
+  block("calls", "Requests", ledNum(u.calls), u.errors ? t("{n} failed", { n: ledNum(u.errors) }) : t("none failed"));
+  const c = fmtCost(u);
+  const priceNote = u.unpriced ? t(u.unpriced === 1 ? "{n} call had no known price and is not counted" : "{n} calls had no known price and are not counted", { n: u.unpriced }) : t("effective prices");
+  block("cost", "Cost", c ? "≈" + c : "—", priceNote, priceNote, c ? "cost" : "");
+  const prompt = (u.input || 0) + cache;
+  const rate = prompt ? 100 * (u.cache_read || 0) / prompt : 0;
+  const hit = block("cache", "Cache hit rate", dp2(rate) + "%", "",
+    t("The share of the prompt read from the cache") + " · " + t("{w} written · {r} read", { w: fmtN(u.cache_write || 0), r: fmtN(u.cache_read || 0) }) + cacheTTLs(u, fmtN));
+  const meter = el("div", "meter"), fill = el("i");
+  fill.style.width = rate.toFixed(1) + "%";
+  meter.append(fill);
+  hit.append(meter);
+  const speed = ledSpeed(u);
+  block("speed", "Output speed", speed ? t("{n} tok/s", { n: dp2(speed) }) : "—",
+    ledTTFT(u) ? t("first token in {ms} on average", { ms: ledTook(ledTTFT(u)) }) : t("no streamed replies timed"),
+    t("Output tokens a second after the first, over the streamed replies") + ". " + t("A reply that reasoned counts only its answer, from its first text: the reasoning was written before the stream showed it"));
+}
+
 function renderUsage() {
   const u = usage;
   const view = $("#view-usage");
@@ -14643,25 +14425,7 @@ function renderUsage() {
     return;
   }
   stats.classList.remove("empty");
-  const tile = (n, label, sub, title) => {
-    const t = el("div", "kpi");
-    if (title) t.title = title;
-    t.append(el("b", "", n), el("span", "", label));
-    if (sub) t.append(el("small", "", sub));
-    stats.append(t);
-  };
-  tile(fmtN(tokensOf(u)), t("tokens"), t("{a} in · {b} out", { a: fmtN(u.input), b: fmtN(u.output) }));
-  // cache reads are billed at a fraction of input, so how much of the prompt
-  // came from cache is the number that explains the bill; input here already
-  // excludes the cached tokens, read and written (the gateway subtracts
-  // them), so what was written counts in the prompt too: left out, a prompt
-  // written to the cache again at every turn showed a rate near 100%. The
-  // written count is secondary and only fits in the tooltip.
-  const promptTokens = u.input + u.cache_read + u.cache_write;
-  const hit = u.cache_read && promptTokens ? t("hit rate {p}", { p: Math.round(100 * u.cache_read / promptTokens) + "%" }) : "";
-  tile(fmtN(u.cache_read), t("cache read"), hit, u.cache_write ? t("{n} written", { n: fmtN(u.cache_write) }) + cacheTTLs(u, fmtN) : "");
-  tile(fmtN(u.reasoning), t("reasoning"), t("inside output"));
-  tile(String(u.calls), t(u.calls === 1 ? "call" : "calls"), u.errors ? t("{n} failed", { n: u.errors }) : "");
+  drawUsageKpis(stats, u, true);
 
   // the timeline: one bar per hour, day or week; output sits on top of input
   const chart = $("#chart");
@@ -14705,7 +14469,7 @@ function renderUsage() {
       // wrote after (#196)
       if (g.timed) {
         sub.push(t("TTFT {ms}", { ms: ledTook(Math.round(g.ttft_ms / g.timed)) }));
-        if (g.decode_ms > 0) sub.push(t("{n} tok/s", { n: Math.round(g.decode_out / (g.decode_ms / 1000)) }));
+        if (g.decode_ms > 0) sub.push(t("{n} tok/s", { n: dp2(g.decode_out / (g.decode_ms / 1000)) }));
       }
       who.append(el("div", "sub", sub.join(" · ")));
       r.append(who);
@@ -14713,13 +14477,13 @@ function renderUsage() {
       const fill = el("i");
       fill.style.width = Math.max(1.5, 100 * tokensOf(g) / total).toFixed(1) + "%";
       share.append(fill);
-      share.title = t("{n}% of tokens", { n: Math.round(100 * tokensOf(g) / total) });
+      share.title = t("{n}% of tokens", { n: dp2((100 * tokensOf(g)) / total) });
       r.append(share);
       const num = el("div", "num");
       // how much of its prompt came from the cache, counted as the cache
       // read tile counts it (#925)
       const prompt = g.input + g.cache_read + (g.cache_write || 0);
-      const hit = g.cache_read && prompt ? " · " + t("hit rate {p}", { p: Math.round(100 * g.cache_read / prompt) + "%" }) : "";
+      const hit = g.cache_read && prompt ? " · " + t("hit rate {p}", { p: dp2((100 * g.cache_read) / prompt) + "%" }) : "";
       num.append(el("b", "", fmtN(tokensOf(g))), el("small", "", t("{a} in · {b} out", { a: fmtN(g.input), b: fmtN(g.output) }) + (g.cache_read ? " · " + t("{n} cached", { n: fmtN(g.cache_read) }) : "") + hit));
       r.append(num);
       r.append(el("div", "cost", fmtCost(g) ? "≈" + fmtCost(g) : ""));
@@ -14914,9 +14678,11 @@ function ledDetail(r, cols) {
     dl.lastChild.previousSibling.classList.add("lc-opt");
   };
   opt("Sent", r.model);
+  opt("Requested", r.req);
+  opt("Served", r.served);
   opt("Effort", r.effort);
   if (r.cache_write || r.cache_read) opt("Cache", t("{w} written · {r} read", { w: ledNum(r.cache_write || 0), r: ledNum(r.cache_read || 0) }) + cacheTTLs(r, ledNum));
-  if (ledRowSpeed(r)) add("Speed", t("{n} tok/s", { n: ledNum(Math.round(ledRowSpeed(r))) }));
+  if (ledRowSpeed(r)) add("Speed", t("{n} tok/s", { n: dp2(ledRowSpeed(r)) }));
   add("Request ID", r.rid);
   add("Endpoint", r.ep);
   const protos = ledProtos(r);
@@ -15069,11 +14835,12 @@ function ledContentBox(c) {
 // server sums it all (the ledger's "series" and "by"); the tray panel's Usage
 // tab draws the same from the same answer.
 
-// a cost as an axis says it: the currency Settings picks, no more digits than it takes
+// a cost as an axis says it: the currency Settings picks, two places (four
+// under a cent)
 function ledMoney(v) {
   let sign = "$";
   if (currency === "cny" && fx.rate > 0) { v *= fx.rate; sign = "¥"; }
-  return sign + (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
+  return sign + costText(v);
 }
 
 const LED_METRICS = [["tokens", "Tokens"], ["cost", "Cost"], ["calls", "Requests"]];
@@ -15101,8 +14868,8 @@ const ledValue = (m, x) => m === "speed" ? ledSpeed(x) : m === "cost" ? +x.cost 
 // of a point's part, which has its calls, tokens, cost and speed
 const ledPart = (m, x) => m === "speed" ? ledSpeed(x) : m === "cost" ? +x.cost || 0 : m === "calls" ? +x.calls || 0 : +x.tokens || 0;
 // a metric as its axis and its values say it
-const ledFormat = (m, v) => m === "cost" ? ledMoney(v) : m === "calls" || m === "speed" ? ledNum(Math.round(v)) : fmtN(Math.round(v));
-const ledFormatLong = (m, v) => m === "speed" ? (v > 0 ? t("{n} tok/s", { n: ledNum(Math.round(v)) }) : "—") : m === "cost" ? (fmtCost({ cost: v, unpriced: 0 }) || "—") : ledNum(Math.round(v));
+const ledFormat = (m, v) => m === "cost" ? ledMoney(v) : m === "speed" ? dp2(v) : m === "calls" ? ledNum(Math.round(v)) : fmtN(Math.round(v));
+const ledFormatLong = (m, v) => m === "speed" ? (v > 0 ? t("{n} tok/s", { n: dp2(v) }) : "—") : m === "cost" ? (fmtCost({ cost: v, unpriced: 0 }) || "—") : ledNum(Math.round(v));
 
 // an axis's top with four steps under it: round numbers, the top at least the largest value
 function ledAxis(max) {
@@ -15309,6 +15076,7 @@ function drawLedColumns(box, l, split, metric, compact, chooseDay, focusDay) {
 // one the filter has picked, if any; the ones past the chart's colours are
 // left out of it and said in a line.
 function drawLedRank(box, l, split, metric, picked, choose, compact) {
+  const brief = box.classList.contains("usage-rank");
   // a redraw (a pick, a refresh) leaves the ranking scrolled where it was
   const kept = box.scrollTop;
   box.replaceChildren();
@@ -15341,19 +15109,22 @@ function drawLedRank(box, l, split, metric, picked, choose, compact) {
     if (metric !== "tokens") more.push(t("{n} tokens", { n: fmtN(allTokens(x)) }));
     if (metric !== "cost" && x.cost) more.push("≈" + fmtCost(x));
     // how fast its replies came, beside what they cost (#860)
-    if (metric !== "speed" && ledSpeed(x)) more.push(t("{n} tok/s", { n: ledNum(Math.round(ledSpeed(x))) }));
-    if (ledTTFT(x)) more.push(t("TTFT {ms}", { ms: ledTook(ledTTFT(x)) }));
+    const timing = [];
+    if (metric !== "speed" && ledSpeed(x)) timing.push(t("{n} tok/s", { n: dp2(ledSpeed(x)) }));
+    if (ledTTFT(x)) timing.push(t("TTFT {ms}", { ms: ledTook(ledTTFT(x)) }));
     const prompt = x.input + x.cache_write + x.cache_read;
-    if (prompt && !compact) more.push(t("hit rate {p}", { p: Math.round((100 * x.cache_read) / prompt) + "%" }));
+    if (prompt && !compact) timing.push(t("hit rate {p}", { p: dp2((100 * x.cache_read) / prompt) + "%" }));
+    if (!brief) more.push(...timing);
+    else b.title = [x.name || x.id, ...timing].join(" · ");
     // a speed is no one's share of all
-    if (metric !== "speed") more.push(Math.round((100 * v) / sum) + "%");
+    if (metric !== "speed") more.push(dp2((100 * v) / sum) + "%");
     const l2 = el("div", "rk-b");
     l2.append(more.join(" · "));
     if (x.errors) l2.append(" · ", Object.assign(el("span", "rk-bad"), { textContent: t("{n} failed", { n: x.errors }) }));
     b.append(l1, bar, l2);
     if (!plain) b.onclick = () => choose(x);
-    b.onpointerenter = () => box.chart?.emphasize?.(x.id);
-    b.onpointerleave = () => box.chart?.emphasize?.(null);
+    b.onfocus = b.onpointerenter = () => box.chart?.emphasize?.(x.id);
+    b.onblur = b.onpointerleave = () => box.chart?.emphasize?.(null);
     return b;
   };
   for (const x of top) box.append(one(x, x.color));
@@ -15414,34 +15185,7 @@ function renderLedgerDash(l) {
   const dash = $("#ledDash");
   dash.hidden = !l.total && !l.day;
   if (dash.hidden) return;
-  const total = allTokens(l);
-  const prompt = l.input + l.cache_write + l.cache_read;
-  const rate = prompt ? l.cache_read / prompt : 0;
-  const strip = $("#ledKpi");
-  strip.replaceChildren();
-  const block = (label, value, sub, cls, title) => {
-    const b = el("div", "blk");
-    if (title) b.title = title;
-    b.append(el("span", "k", t(label)), el("span", "v" + (cls ? " " + cls : ""), value));
-    if (sub) b.append(sub);
-    strip.append(b);
-    return b;
-  };
-  const line = (...parts) => { const s = el("span", "sub"); s.append(...parts); return s; };
-  block("Tokens", fmtN(total), line(t("{a} in · {b} out", { a: fmtN(l.input), b: fmtN(l.output) }), " · ", t("{a} cache", { a: fmtN(l.cache_read + l.cache_write) })), "", ledNum(total));
-  block("Requests", ledNum(l.calls), line(l.errors ? t("{n} failed", { n: ledNum(l.errors) }) + " · " + t("{p} succeeded", { p: (100 * (1 - l.errors / l.calls)).toFixed(l.errors ? 1 : 0) + "%" }) : t("none failed")));
-  const c = fmtCost(l);
-  block("Cost", c ? "≈" + c : "—", line(l.unpriced ? t(l.unpriced === 1 ? "{n} call had no known price and is not counted" : "{n} calls had no known price and are not counted", { n: l.unpriced }) : t("effective prices")), c ? "cost" : "");
-  const hit = block("Cache hit rate", (100 * rate).toFixed(1) + "%", null, "", t("The share of the prompt read from the cache"));
-  const meter = el("div", "meter"), fill = el("i");
-  fill.style.width = (100 * rate).toFixed(1) + "%";
-  meter.append(fill);
-  hit.append(meter);
-  // how fast the streamed replies wrote, and how long they took to begin (#860)
-  const speed = ledSpeed(l);
-  block("Output speed", speed ? t("{n} tok/s", { n: ledNum(Math.round(speed)) }) : "—",
-    line(ledTTFT(l) ? t("first token in {ms} on average", { ms: ledTook(ledTTFT(l)) }) : t("no streamed replies timed")),
-    "", t("Output tokens a second after the first, over the streamed replies") + ". " + t("A reply that reasoned counts only its answer, from its first text: the reasoning was written before the stream showed it"));
+  drawUsageKpis($("#ledKpi"), l);
   drawLedTrend();
 }
 
@@ -15460,6 +15204,7 @@ function drawLedTrend() {
   };
   pill($("#ledMetric"), "ledMetric", LED_TREND, ledMetric, (id) => { ledMetric = id; try { localStorage.setItem("magpie.ledMetric", id); } catch {} drawLedTrend(); });
   pill($("#ledSplit"), "ledSplit", LED_SPLITS, ledSplit, (id) => { ledSplit = id; drawLedTrend(); });
+  $("#ledTrendTitle").textContent = t(LED_TREND.find(([id]) => id === ledMetric)[1]) + " · " + t(LED_SPLITS.find(([id]) => id === ledSplit)[1]);
   const chart = $("#ledChart"), rank = $("#ledRank");
   drawLedColumns(chart, l, ledSplit, ledMetric, false, (day) => {
     ledDay = ledDay === day ? "" : day;
@@ -15536,8 +15281,8 @@ new ResizeObserver(() => {
 // the third: a column a narrow window leaves out, its value in the row's
 // details (#860)
 const LED_COLS = [
-  ["Time"], ["Agent"], ["Requested"], ["Provider · account"], ["Sent", "", true], ["Served"], ["Effort", "", true],
-  ["In", "n"], ["Out", "n"], ["Cache write", "n", true], ["Cache read", "n", true], ["Cost", "n"], ["Duration", "n"], ["Speed", "n"], ["Status"],
+  ["Time"], ["Agent"], ["Model"], ["Provider"], ["Sent", "", true], ["Served", "", true], ["Effort", "", true],
+  ["In", "n"], ["Out", "n"], ["Cache write", "n", true], ["Cache read", "n", true], ["Cost", "n"], ["Duration", "n"], ["Speed", "n", true], ["Status"],
 ];
 
 // the tokens a reply was seen to write and the ms it took, as
@@ -15573,7 +15318,7 @@ function ledFit() {
     $("#ledSum").after(hint);
   }
   hint.textContent = t("Sent, Effort and the cache are in each row's details");
-  hint.hidden = !tight;
+  hint.hidden = true; // secondary columns are always in the expandable row
 }
 
 function renderLedger() {
@@ -15603,6 +15348,8 @@ function renderLedger() {
   view.removeAttribute("aria-busy");
   renderPeriod();
   renderArchive();
+  // A chart/routing selection exposes its filters and the way to clear them.
+  if (ledPurpose || ledDay || ledRoute || ledAgent || ledProvider || ledAccount || ledComputer || ledCallerKey || ledModel || ledVia || ledFailed || ledQuery.trim()) $("#ledTools").open = true;
 
   const cost = $("#usageCost");
   cost.replaceChildren();
@@ -15733,6 +15480,7 @@ function renderLedger() {
     const bad = ledFailed_(r);
     const key = ledKey(r);
     const tr = el("tr", "led-row" + (bad ? " bad" : "") + (ledOpen.has(key) ? " open" : ""));
+    if (!l.offset && r === l.rows[0]) tr.classList.add("latest");
     tr.tabIndex = 0;
     tr.setAttribute("aria-expanded", ledOpen.has(key) ? "true" : "false");
     const td = (child, cls, title) => {
@@ -15798,8 +15546,8 @@ function renderLedger() {
     td(r.model || "—", "model " + (r.model ? "model-value" : "faint"), r.source === "log" && r.model ? t("Model recorded in the local session log; the outbound HTTP request was not captured.") : r.model);
     td(ledServed(r), "model");
     td(r.effort || "—", r.effort ? "" : "faint");
-    td(ledNum(r.in), "n");
-    td(ledNum(r.out), "n", r.reasoning ? t("{n} reasoning, inside output", { n: ledNum(r.reasoning) }) : "");
+    td(fmtN(r.in), "n", ledNum(r.in));
+    td(fmtN(r.out), "n", ledNum(r.out) + (r.reasoning ? " · " + t("{n} reasoning, inside output", { n: ledNum(r.reasoning) }) : ""));
     td(ledNum(r.cache_write), "n" + (r.cache_write ? "" : " faint"), cacheTTLs(r, ledNum).replace(/^ · /, ""));
     td(ledNum(r.cache_read), "n" + (r.cache_read ? "" : " faint"));
     const cost = td(r.priced ? "≈" + fmtCost({ cost: r.cost, unpriced: 0 }) : "—", "n cost" + (r.priced ? "" : " faint"), r.priced ? (r.pricing_model ? t("API price reference") + ": " + r.pricing_model : "") : t("No known price for this model"));
@@ -15817,7 +15565,7 @@ function renderLedger() {
       [!untimed ? t("{n} ms", { n: ledNum(r.ms) }) : "", !untimed ? t("Duration colors: ≤10 s green · 10–30 s amber · >30 s red") : "", timed && !untimed ? t("About: told from the session file's times, a little more or less than it took") : "", r.ttft_ms ? t("TTFT {ms}", { ms: ledTook(r.ttft_ms) }) : ""].filter(Boolean).join(" · "));
     // how fast it wrote once it began, as CC Switch's log has it (#860)
     const v = ledRowSpeed(r);
-    td(v ? t("{n} tok/s", { n: ledNum(Math.round(v)) }) : "—", "n speed" + (v ? "" : " faint"),
+    td(v ? t("{n} tok/s", { n: dp2(v) }) : "—", "n speed" + (v ? "" : " faint"),
       v ? (r.reasoning > 0 ? t("{n} answer tokens in {ms} after the first text, the {r} reasoning tokens before it left out", { n: ledNum(ledDecode(r).n), ms: ledTook(ledDecode(r).w), r: ledNum(r.reasoning) })
         : t("{n} output tokens in {ms} after the first", { n: ledNum(r.out), ms: ledTook(r.ms - r.ttft_ms) })) + " · " + t("TTFT {ms}", { ms: ledTook(r.ttft_ms) })
         : r.ttft_ms || untimed || ledFailed_(r) ? "" : t("Not streamed: no first token to time a speed from"));
@@ -16260,7 +16008,7 @@ function fmtBytes(n) {
   const u = ["B", "KB", "MB", "GB", "TB"];
   let i = 0;
   while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
-  return (i && n < 10 ? n.toFixed(1) : Math.round(n)) + " " + u[i];
+  return (i ? dp2(n) : Math.round(n)) + " " + u[i];
 }
 
 const sessKey = (s) => s.agent + ":" + s.id;
@@ -16539,7 +16287,7 @@ function renderSessions() {
     tile(c ? "≈" + c : "—", t("cost"), t("at effective prices"), unpricedNote);
     // input leaves out what was read from the cache and written to it
     const prompt = tot.input + tot.cache_read + tot.cache_write;
-    tile(fmtN(tot.cache_read), t("cache read"), tot.cache_read && prompt ? t("hit rate {p}", { p: Math.round(100 * tot.cache_read / prompt) + "%" }) : "", tot.cache_write ? t("{n} written", { n: fmtN(tot.cache_write) }) : "");
+    tile(fmtN(tot.cache_read), t("cache read"), tot.cache_read && prompt ? t("hit rate {p}", { p: dp2((100 * tot.cache_read / prompt)) + "%" }) : "", tot.cache_write ? t("{n} written", { n: fmtN(tot.cache_write) }) : "");
     tile(active == null ? "—" : fmtDur(active), t("active"), active == null ? t("not kept by model") : t(days === 1 ? "on {n} day" : "on {n} days", { n: days }),
       t("The time the sessions were at work: the pauses between one message and the next, each under five minutes"));
     // how many folders, and how much of it the first took
@@ -20260,6 +20008,7 @@ let usageLast = 0, usageReadAt = 0, sessionsAt = 0, quotasAsked = 0;
 
 function renderUsageEvery() {
   const cur = USAGE_EVERY.find(([n]) => n === usageEvery);
+  $("#usageLive").hidden = !usageEvery;
   const b = $("#usageEvery");
   b.replaceChildren(el("span", "", t(cur[1])), svg(CHEV, 11, 1.6));
   b.title = t("Refresh every");

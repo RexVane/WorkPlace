@@ -33,18 +33,26 @@
   wires.setAttribute("aria-hidden", "true");
   const srcs = el("div", "rt-srcs"); // an agent's node each
   const hub = el("div", "rt-node rt-hub");
-  const logo = document.createElementNS(NS, "svg");
-  logo.setAttribute("viewBox", "0 0 44 44");
-  logo.setAttribute("class", "rt-bird");
-  logo.innerHTML = '<use href="#bird"/>';
-  const hubSub = el("small"), chip = el("i");
-  hub.append(logo, el("b", "", "magpie"), hubSub, chip);
+  // the gateway's core: how many requests are in flight through it, ringed
+  // in their agents' colours while there are any (hubLight)
+  const core = el("span", "rt-core"), coreN = el("span", "rt-core-n", "0"), coreL = el("span", "rt-core-l");
+  const orbs = el("span", "rt-orbs"); // a light orbiting the core for each request in flight
+  core.append(el("span", "rt-core-halo"), el("span", "rt-core-ring"), el("span", "rt-core-sweep"),
+    el("span", "rt-core-wave"), el("span", "rt-core-wave late"), orbs, coreN, coreL);
+  const hubName = el("b"), hubSub = el("small"), chip = el("i");
+  // the ports the wires meet it at
+  hub.append(el("span", "rt-port in"), el("span", "rt-port out"), core, hubName, hubSub, chip);
   const list = el("ol", "rt-accts");
-  // the magpies fly over the nodes, the wires run under them
+  // the light along a wire carrying something: a twin of each wire, over
+  // them all and under the nodes (beams)
+  const glow = document.createElementNS(NS, "svg");
+  glow.setAttribute("class", "rt-beams");
+  glow.setAttribute("aria-hidden", "true");
+  // the requests fly over the nodes, the wires run under them
   const sky = document.createElementNS(NS, "svg");
   sky.setAttribute("class", "rt-sky");
   sky.setAttribute("aria-hidden", "true");
-  stage.append(wires, srcs, hub, list, sky);
+  stage.append(wires, glow, srcs, hub, list, sky);
   const foot = el("div", "rt-foot");
   const cap = el("p", "rt-cap");
   cap.setAttribute("aria-live", "polite");
@@ -184,7 +192,7 @@
     openProtoMenu(metricPick, metricOptions.map(([v, name]) => ({ v, name, note: "" })), visibleMetrics, (keys) => {
       visibleMetrics = keys;
       try { localStorage.setItem("magpie.routingMetrics", JSON.stringify(keys)); } catch {}
-      steady(renderHist);
+      steady(() => { renderHist(); render(); });
     }, "Metrics to show", "rt-metric-menu", "right", true);
   };
   let purpose = [];
@@ -219,7 +227,274 @@
 
   const path = () => { const p = document.createElementNS(NS, "path"); wires.appendChild(p); return p; };
   const setText = (e, s) => { if (e.textContent !== s) e.textContent = s; };
-  const tick = (e) => { e.classList.remove("tick"); void e.offsetWidth; e.classList.add("tick"); };
+  // a node's beat as a request reaches or leaves it, in that request's
+  // colour; one still coming in finishes that first
+  const tick = (e, hue) => {
+    if (e.classList.contains("enter")) return;
+    if (hue) e.style.setProperty("--pulse", hue);
+    e.classList.remove("tick"); void e.offsetWidth; e.classList.add("tick");
+  };
+
+  // ---------- how it moves (display only: what is lit is decided below) ----------
+
+  // beams: each wire's twin of light, laid as the wire is and lit as it is
+  const beamOf = new Map();
+  function beams() {
+    for (const [p, b] of beamOf) if (!p.isConnected) { b.remove(); beamOf.delete(p); }
+    for (const p of wires.children) {
+      let b = beamOf.get(p);
+      if (!b) {
+        b = document.createElementNS(NS, "path");
+        b.setAttribute("pathLength", "100");
+        glow.appendChild(b);
+        beamOf.set(p, b);
+      }
+      const d = p.getAttribute("d") || "", c = p.getAttribute("class") || "", hue = p.style.getPropertyValue("--agent");
+      if (b.getAttribute("d") !== d) b.setAttribute("d", d);
+      if (b.getAttribute("class") !== c) b.setAttribute("class", c);
+      if (hue && b.style.getPropertyValue("--agent") !== hue) b.style.setProperty("--agent", hue);
+    }
+  }
+  // trail: the light a dot leaves behind it, fading to nothing along the way it came
+  const TRAIL = 72;
+  let trails = 0;
+  function trail(dot, point, d) {
+    let tl = dot._trail;
+    if (!tl) {
+      const gr = document.createElementNS(NS, "linearGradient"), p = document.createElementNS(NS, "path");
+      gr.id = "rt-trail-" + ++trails;
+      gr.setAttribute("gradientUnits", "userSpaceOnUse");
+      gr.innerHTML = '<stop offset="0" stop-opacity="0"/><stop offset="1"/>';
+      p.setAttribute("stroke", `url(#${gr.id})`);
+      sky.insertBefore(gr, dot);
+      sky.insertBefore(p, dot);
+      tl = dot._trail = { gr, p };
+    }
+    const k = (dot.classList.contains("back") ? " back" : "") + (dot.classList.contains("err") ? " err" : "");
+    if (tl.p.getAttribute("class") !== "trail" + k) tl.p.setAttribute("class", "trail" + k);
+    tl.gr.setAttribute("class", k.trim());
+    tl.gr.style.setProperty("--agent", dot.style.getPropertyValue("--agent"));
+    const len = Math.min(d, TRAIL), pts = [];
+    for (let i = 8; i >= 0; i--) pts.push(point(d - len * i / 8));
+    const a = pts[0], b = pts[8];
+    tl.gr.setAttribute("x1", a.x); tl.gr.setAttribute("y1", a.y); tl.gr.setAttribute("x2", b.x); tl.gr.setAttribute("y2", b.y);
+    tl.p.setAttribute("d", "M" + pts.map((q) => `${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join("L"));
+  }
+  // land: where a flight ends a ring goes out from the dot, and its trail fades
+  function land(dot, ms) {
+    dot._trail?.p.classList.add("fade");
+    if (!ms || still() || !shown() || !dot.isConnected || dot.hasAttribute("visibility")) return;
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", dot.getAttribute("cx"));
+    c.setAttribute("cy", dot.getAttribute("cy"));
+    c.setAttribute("r", 4);
+    c.setAttribute("class", "burst" + (dot.classList.contains("err") ? " err" : ""));
+    c.style.setProperty("--agent", dot.style.getPropertyValue("--agent"));
+    sky.insertBefore(c, dot);
+    setTimeout(() => c.remove(), 700);
+  }
+  // drop: a dot gone, its trail after it once faded
+  function drop(dot) {
+    const tl = dot._trail, gone = () => { dot.remove(); if (tl) { tl.p.remove(); tl.gr.remove(); } };
+    if (tl) tl.p.classList.add("fade");
+    if (still() || !dot.isConnected) return gone();
+    dot.classList.add("gone"); // taken in where it landed, not blinked out
+    setTimeout(gone, 340);
+  }
+  // enter and leave: an agent or account coming slides in; one going leaves
+  // a copy of itself where it was, to slide out as the rest close up
+  function enter(node) {
+    node.classList.add("enter");
+    flipUntil = Math.max(flipUntil, performance.now() + 650);
+    setTimeout(() => node.classList.remove("enter"), 650);
+  }
+  function leave(node) {
+    const host = node.parentElement;
+    if (!host || still() || !shown()) { node.remove(); return; }
+    const s = stage.getBoundingClientRect(), r = node.getBoundingClientRect();
+    const row = host === list, g = node.cloneNode(true), wrap = el(row ? "ol" : "div", row ? "rt-accts rt-ghost" : "rt-ghost");
+    wrap.style.cssText = `left:${r.left - s.left}px;top:${r.top - s.top}px;width:${r.width}px`;
+    g.style.margin = "0";
+    g.classList.remove("on", "rt-busy", "tick", "new", "enter", "hit", "tagged");
+    wrap.append(g);
+    node.remove();
+    stage.append(wrap);
+    setTimeout(() => wrap.remove(), 600);
+  }
+  // slide: nodes moved by others coming or going glide to their places
+  function slide(pairs) {
+    if (still()) return;
+    const moved = [];
+    for (const [n, y] of pairs) { const dy = y === undefined ? 0 : y - n.getBoundingClientRect().top; if (Math.abs(dy) > .5) moved.push([n, dy]); }
+    if (!moved.length) return;
+    for (const [n, dy] of moved) { n.style.transition = "none"; n.style.translate = `0 ${dy}px`; }
+    void stage.offsetWidth;
+    for (const [n] of moved) { n.style.transition = ""; n.style.translate = ""; }
+    flipUntil = Math.max(flipUntil, performance.now() + 520);
+  }
+  // roll: a count going up runs up to its new number, with a beat
+  function roll(b, n) {
+    const to = String(n), was = b.dataset.n, from = Number(was);
+    if (was === to) return;
+    b.dataset.n = to;
+    if (was === undefined || Number.isNaN(from) || n < from || still() || !shown()) { setText(b, to); return; }
+    b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump");
+    const t0 = performance.now();
+    const step = (ts) => {
+      if (b.dataset.n !== to) return;
+      const k = Math.min(1, (ts - t0) / 480);
+      setText(b, String(Math.round(from + (n - from) * (1 - (1 - k) ** 3))));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  // facts: what an account is doing for a request now, and what its answer
+  // took, as the trace has them — and, while that hides it, its allowance;
+  // an agent's under its name. A timer runs on from when its try began.
+  const clocks = new Map(); // a timer → when what it times began, the gateway's time
+  let clockAt = 0;
+  const secs = (ms) => t("{n} s", { n: (Math.max(0, ms) / 1000).toFixed(1) });
+  function tickClocks() {
+    const n = now();
+    for (const [e, since] of clocks) if (!e.isConnected) clocks.delete(e); else setText(e, secs(n - since));
+  }
+  const part = (cls, text, hue) => {
+    const e = el("span", cls, text);
+    if (hue) e.style.setProperty("--agent", hue);
+    return { e, sig: cls + "|" + text + "|" + (hue || "") };
+  };
+  const timer = (since, hue) => { const p = part("lt", secs(now() - since), hue); clocks.set(p.e, since); p.sig = "lt|" + since; return p; };
+  // told: a box says these, made again only when what they say changes
+  function told(box, parts, phase) {
+    const sig = phase + "\n" + parts.map((p) => p.sig).join("\n");
+    if (box._sig === sig) return;
+    for (const e of box.querySelectorAll(".lt")) clocks.delete(e);
+    box.replaceChildren(...parts.map((p) => p.e));
+    if (box._phase !== phase && parts.length && !still()) { box.classList.remove("in"); void box.offsetWidth; box.classList.add("in"); }
+    box._sig = sig;
+    box._phase = phase;
+    relay = true; // its node may have grown or shrunk: the wires are laid again
+  }
+  let relay = false;
+  function rowFacts(row, r, w, tr, on, resting) {
+    const parts = [], hue = hueOf(r.agent);
+    let phase = "";
+    if (tr && on) {
+      phase = tr.done ? "done" : "live";
+      if (!tr.done) parts.push(timer(at(tr.start), hue));
+      if (agents.size > 1) parts.push(part("c who", agentName(r.agent), hue));
+      if (r.kind) parts.push(part("c", kindName(r.kind)));
+      if (tr.effort) parts.push(part("c lvl", t("reasoning") + " " + tr.effort));
+      if (tr.fast) parts.push(part("c", t("fast")));
+      if (tr.done && tryOk(tr) && tr.swapped && tr.served) parts.push(part("c swap", t("served {served}", { served: tr.served })));
+      if (tr.done && tryOk(tr) && r.done) {
+        // The picker applies to the account too. Timings are this try's;
+        // token and cost totals keep the request's retry explanations.
+        const ms = requestMetrics({ ...r, ms: tr.ms, ttft: tr.ttft, firstText: tr.firstText }, "ok");
+        if (tr.ttft && tr.firstText > tr.ttft) ms.push(["think", "", t("thought {ms}", { ms: took(tr.firstText - tr.ttft) })]);
+        for (const metric of ms) {
+          const [cls, label, value] = metric;
+          const e = label ? metricElement(metric) : el("span", "rt-metric " + cls, value);
+          parts.push({ e, sig: cls + e.textContent + e.title });
+        }
+      }
+    }
+    const bal = balanceOf(w);
+    if (bal && (on || resting)) parts.push(part("q", t("Balance") + " " + bal));
+    if (w.known && (on || resting)) {
+      const soon = renews(w)[0];
+      parts.push(part("q" + (w.used >= 90 ? " low" : ""), soon ? quota(w, "{n} used · renews in {d}", "{n} left · renews in {d}", { d: dur(soon - now()) }) : quota(w, "{n} used", "{n} left")));
+    }
+    told(row.info, parts, phase);
+  }
+  // balanceOf: what is left on a key or provider, as the Usage page reads it
+  // from the vendor's own balance endpoint (provider.KeyBalances: DeepSeek,
+  // Moonshot, OpenRouter, SiliconFlow…) — the provider's, or the key's own
+  // where each of its keys has one; "" for none, or one not read. Asked for
+  // again once a minute while the stage is drawn. Reuse a newer Usage
+  // reading, but keep these background reads out of Usage's state/rendering.
+  let balances = [], balAt = 0, balAsked = 0, balFlight = null;
+  function balanceOf(w) {
+    if (w.kind === "account") return "";
+    if (Array.isArray(quotas) && quotasAt > balAt) {
+      balances = quotas;
+      balAt = quotasAt;
+    }
+    const at = Date.now();
+    if (!balFlight && at - Math.max(balAt, balAsked) > 60e3) {
+      balAsked = at;
+      balFlight = api("usage/quotas").then((qs) => {
+        if (!Array.isArray(qs)) return;
+        balances = qs;
+        balAt = Date.now();
+        if (shown()) render();
+      }).catch(() => {}).finally(() => { balFlight = null; });
+    }
+    const mine = balances.filter((q) => q?.provider === w.provider && q.balance && !q.error && !q.windows?.length);
+    const q = mine.find((x) => x.user && x.user === w.who) || mine.find((x) => !x.user);
+    return q ? q.balance : "";
+  }
+  function agentFacts(a, r) {
+    const parts = [];
+    let phase = "";
+    if (r) {
+      const tr = r.tries[r.tries.length - 1];
+      phase = r.done ? "done" : "live";
+      if (!r.done) parts.push(timer(at(r.time), hueOf(r.agent)));
+      else if (failedRoute(r)) parts.push(part("bad", tr?.status ? `${tr.status} · ${failWord(tr.fail)}` : failWord(tr?.fail)));
+      else if (r.ms) parts.push(part("ok", took(r.ms)));
+      if (r.kind) parts.push(part("c", kindName(r.kind)));
+      if (r.effort) parts.push(part("c", t("reasoning") + " " + r.effort));
+    }
+    told(a.doing, parts, phase);
+    sentFacts(a, r);
+  }
+  // what it sent: the gateway keeps no prompt's text, only what it is made
+  // of — its turn, its size against the model's window, and its parts
+  const PARTS = [["system", "System prompt", "var(--c7)"], ["tools", "Tools", "var(--c6)"], ["memory", "Memory", "var(--c4)"],
+    ["files", "Files", "var(--c2)"], ["results", "Tool results", "var(--c3)"], ["chat", "Conversation", "var(--c1)"]];
+  function sentFacts(a, r) {
+    const p = r?.prompt, parts = [];
+    if (p?.tokens) {
+      const sz = [p.turns ? t("Turn {n}", { n: p.turns }) : "", tokens(p.tokens) + (p.window ? " / " + tokens(p.window).replace(/\.0(?=[kM]$)/, "") : "")].filter(Boolean).join(" · ");
+      parts.push(part("sz", sz));
+      // the bar is the prompt, its parts in proportion; the words say how much of the window it fills
+      const bar = el("span", "mix"), whole = (p.parts || []).reduce((n, y) => n + (y.tokens || 0), 0) || p.tokens, lines = [];
+      for (const [k, name, hue] of PARTS) {
+        const x = (p.parts || []).find((y) => y.kind === k);
+        if (!x?.tokens) continue;
+        const s = el("i");
+        s.style.width = (100 * x.tokens / whole).toFixed(2) + "%";
+        s.style.background = hue;
+        bar.append(s);
+        lines.push(t(name) + " " + tokens(x.tokens));
+      }
+      bar.title = lines.join("\n");
+      parts.push({ e: bar, sig: lines.join("|") + "|" + whole });
+    }
+    told(a.sent, parts, r ? String(r.id) : "");
+  }
+  // hubLight: the core counts the requests in flight, ringed in their agents' colours
+  function hubLight(rs, busy) {
+    const live = new Map();
+    for (const r of rs) if (!r.done) live.set(r.id, r.agent);
+    for (const id of playing.keys()) if (!live.has(id)) { const r = src().get(id); if (r) live.set(id, r.agent); }
+    setText(coreN, String(live.size));
+    setText(coreL, t("in flight"));
+    // one orbiting light each, in its agent's colour (eight at most)
+    const hs = [...live.values()].slice(0, 8).map(hueOf);
+    while (orbs.children.length > hs.length) orbs.lastElementChild.remove();
+    while (orbs.children.length < hs.length) orbs.append(el("span", "rt-orb"));
+    [...orbs.children].forEach((o, i) => { o.style.setProperty("--agent", hs[i]); o.style.setProperty("--i", i); });
+    orbs.style.setProperty("--n", hs.length || 1);
+    const hues = [...busy].map(hueOf), on = hues.length > 0;
+    hub.classList.toggle("rt-busy", on);
+    stage.classList.toggle("rt-busy", on);
+    if (!on) return;
+    hub.style.setProperty("--hue", hues[0]);
+    stage.style.setProperty("--glow", hues[0]);
+    hub.style.setProperty("--ring", `conic-gradient(transparent 0 35%, ${hues.map((h, i) => `${h} ${35 + 65 * (i + 1) / hues.length}%`).join(", ")})`);
+  }
 
   // ---------- words ----------
 
@@ -309,7 +584,7 @@
       tokens: ["tokens", "Tokens", r.tokens ? tokens(r.tokens) : "—", tokenBreakdown([r])],
       cache: ["cache-hit", "Cache", prompt ? pct(100 * read / prompt) : "—",
         t("Cache hit rate") + ": " + t("The share of the prompt read from the cache")],
-      speed: ["speed", "Speed", speed ? t("{n} tok/s", { n: Math.round(speed) }) : "—",
+      speed: ["speed", "Speed", speed ? t("{n} tok/s", { n: dp2(speed) }) : "—",
         t("Output tokens a second after the first, over the streamed replies") + ". " + t("A reply that reasoned counts only its answer, from its first text: the reasoning was written before the stream showed it")],
       cost: ["cost", "Cost", routeCost(r), r.priced ? costNote() : t("No known price or token counts for this request")],
     };
@@ -327,13 +602,13 @@
     let s = tr.ttft ? " · " + t("first token in {ms}", { ms: took(tr.ttft) }) : "";
     if (tr.ttft && tr.firstText > tr.ttft) s += " · " + t("first text in {ms}", { ms: took(tr.firstText) });
     const v = speedOf(r, tr.ms, tr.ttft, tr.firstText);
-    if (v) s += " · " + t("{n} tok/s", { n: Math.round(v) });
+    if (v) s += " · " + t("{n} tok/s", { n: dp2(v) });
     const { prompt, read } = promptOf(r);
     if (prompt) s += " · " + t("request cache hit rate {p}", { p: pct(100 * read / prompt) });
     return s;
   }
-  const tokens = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n));
-  const pct = (n) => Math.round(n) + "%";
+  const tokens = (n) => n >= 1e6 ? dp2(n / 1e6) + "M" : n >= 1e3 ? dp2(n / 1e3) + "k" : String(Math.round(n));
+  const pct = (n) => dp2(n) + "%";
   // an account's window as Settings' allowance display has it, how much is
   // used or how much is left, the bar filling with the same (#602)
   const share = (w) => quotaLeft ? 100 - Math.max(0, Math.min(100, w.used)) : w.used;
@@ -642,7 +917,7 @@
     const toldEffort = c.afterEffort ? " " + t("It was told turn {prev} reasoned at {level}, which a message that only carries on from it needs too.", { prev: r.rule.turn - 1, level: c.afterEffort }) : "";
     const effort = c.effort ? t("{by} rated turn {turn} {score} of 3, so it picks {level} reasoning for the turn — each model gets the level it has nearest.", { by, turn: r.rule.turn, score: (c.score || 0).toFixed(1), level: c.effort }) + toldEffort : "";
     if (!c.intents?.length) return effort ? `${effort} (${when})` : null;
-    const sure = c.sure ? t(", {n} sure", { n: Math.round(c.sure * 100) + "%" }) : "";
+    const sure = c.sure ? t(", {n} sure", { n: dp2(c.sure * 100) + "%" }) : "";
     const said = (!c.intent
       ? t("{by} was asked which of {kinds} turn {turn} is, and said none ({took}).", { by, kinds, turn: r.rule.turn, took: when + sure })
       : t("{by} was asked which of {kinds} turn {turn} is, and said “{intent}” ({took}).", { by, kinds, turn: r.rule.turn, intent: c.intent, took: when + sure })) + told;
@@ -840,7 +1115,7 @@
     const tr = { dot, bird, legs, t0: performance.now(), ms: still() ? 0 : ms, res, g: gen };
     pose(tr, 0);
     trips.push(tr);
-  }).finally(() => { for (const l of legs) if (l.j) l.p.remove(); });
+  }).finally(() => { for (const l of legs) if (l.j) l.p.remove(); land(dot, ms); });
 
   // tip is where a flight meets a wire's end or start, and which way it
   // heads there: along the wire, or back along it
@@ -853,33 +1128,26 @@
     const n = Math.hypot(tx, ty) || 1;
     return { x: a.x, y: a.y, tx: tx / n, ty: ty / n };
   };
-  // via is the way through magpie from one wire to the next: a gentle arc
-  // across it, carrying on the way the flight came in and leaving the way
-  // the next wire goes — or, out the side it came in, a loop round inside.
-  // It follows the wires as they move.
+  // via is the way through the gateway from one wire to the next: in at its
+  // port, into its core, held there a moment as it decides, and out at the
+  // port the next wire leaves from — back in and out the same port when it
+  // hands a request on. It follows the wires as they move.
+  const DWELL = 200; // how long it is held in the core, as a length of the way
   function via(from, to) {
     const p = document.createElementNS(NS, "path");
     p.setAttribute("class", "via");
     sky.appendChild(p);
-    const j = () => {
+    const v = { p, mid: 0, dwell: DWELL };
+    v.j = () => {
       const a = from(), b = to();
       if (!a || !b) { p.removeAttribute("d"); return; }
-      const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
-      let c1, c2;
-      if (dist < 4) {
-        const h = hub.getBoundingClientRect(), k = Math.min(h.width, h.height) * .42, m = k * .6;
-        const nx = a.ty, ny = -a.tx;
-        c1 = [a.x + a.tx * k - nx * m, a.y + a.ty * k - ny * m];
-        c2 = [b.x - b.tx * k + nx * m, b.y - b.ty * k + ny * m];
-      } else {
-        const k = dist * .38, l = Math.min(16, dist * .12), nx = dy / dist, ny = -dx / dist;
-        c1 = [a.x + a.tx * k + nx * l, a.y + a.ty * k + ny * l];
-        c2 = [b.x - b.tx * k + nx * l, b.y - b.ty * k + ny * l];
-      }
-      p.setAttribute("d", `M${a.x} ${a.y} C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${b.x} ${b.y}`);
+      const s = stage.getBoundingClientRect(), c = core.getBoundingClientRect();
+      const cx = (c.left + c.right) / 2 - s.left, cy = (c.top + c.bottom) / 2 - s.top;
+      v.mid = Math.hypot(cx - a.x, cy - a.y);
+      p.setAttribute("d", `M${a.x} ${a.y} L${cx} ${cy} L${b.x} ${b.y}`);
     };
-    j();
-    return { p, j };
+    v.j();
+    return v;
   }
   const until = (f) => f() ? Promise.resolve() : new Promise((res) => waiters.push({ f, res }));
   const wake = () => { const w = waiters; waiters = []; for (const x of w) if (x.f()) x.res(); else waiters.push(x); };
@@ -899,7 +1167,9 @@
     const b = (e) => { const x = e.getBoundingClientRect(); return { l: x.left - r.left, r: x.right - r.left, t: x.top - r.top, b: x.bottom - r.top, cx: (x.left + x.right) / 2 - r.left, cy: (x.top + x.bottom) / 2 - r.top }; };
     wires.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`);
     sky.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`);
+    glow.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`);
     const h = b(hub), low = b(srcs).b;
+    h.cy = b(core).cy; // the wires meet the gateway at its ports, level with its core
     for (const a of agents.values()) {
       const s = b(a.node), mx = (s.r + h.l) / 2;
       a.wire.setAttribute("d", h.l > s.r ? `M${s.r} ${s.cy} C${mx} ${s.cy} ${mx} ${h.cy} ${h.l} ${h.cy}` : `M${s.cx} ${s.b} L${h.cx} ${h.t}`);
@@ -927,6 +1197,7 @@
       const up = row.up && subs.get(row.up), a = b(row.li);
       row.wire.setAttribute("d", up ? fromSub(up, a) : fromHub(a));
     }
+    beams();
   }
 
   // rankOf is an account's or key's place in its provider's own list, the
@@ -1022,9 +1293,9 @@
   function agentNode(id) {
     let a = agents.get(id);
     if (a) return a;
-    const node = el("div", "rt-node rt-src"), ic = el("span", "rt-ic"), name = el("b"), sub = el("small");
-    node.append(ic, name, sub);
-    a = { node, ic, name, sub, wire: path() };
+    const node = el("div", "rt-node rt-src"), ic = el("span", "rt-ic"), name = el("b"), sub = el("small"), doing = el("span", "rt-doing"), sent = el("span", "rt-sent");
+    node.append(ic, name, sub, doing, sent);
+    a = { node, ic, name, sub, doing, sent, wire: path() };
     node.style.setProperty("--agent", hueOf(id));
     a.wire.style.setProperty("--agent", hueOf(id));
     agents.set(id, a);
@@ -1072,11 +1343,11 @@
       b.append(f);
     }
     if (w.fallback) b.append(el("small", "fb", t("fallback")));
-    const st = el("em"), bar = el("div", "bar"), bi = el("i"), tg = el("span", "tag");
+    const st = el("em"), info = el("div", "rt-info"), bar = el("div", "bar"), bi = el("i"), tg = el("span", "tag");
     bar.append(bi);
-    li.append(el("i", "dot"), b, st, bar, tg);
+    li.append(el("i", "dot"), b, st, info, bar, tg);
     li.title = w.id;
-    return { li, wire: path(), st, bi, tg, w };
+    return { li, wire: path(), st, info, bi, tg, w };
   }
 
   // sync puts the staged routes on the stage: each agent on the left, and
@@ -1103,11 +1374,14 @@
     }
     // agents
     const ags = [...new Set(rs.map((r) => r.agent))];
-    for (const [id, a] of agents) if (!ags.includes(id)) { a.node.remove(); a.wire.remove(); agents.delete(id); }
+    const had = agents.size, aTop = new Map([...agents].map(([id, a]) => [id, a.node.getBoundingClientRect().top]));
+    for (const [id, a] of agents) if (!ags.includes(id)) { leave(a.node); a.wire.remove(); agents.delete(id); }
     const keep = [...agents.keys()];
     const nodes = [...keep, ...ags.filter((a) => !keep.includes(a))].map((id) => agentNode(id).node);
+    if (had && !force && !still()) for (const id of ags) if (!keep.includes(id)) enter(agents.get(id).node);
     if (nodes.some((x, i) => srcs.children[i] !== x) || srcs.children.length !== nodes.length) srcs.replaceChildren(...nodes);
     srcs.classList.toggle("many", ags.length > 1);
+    slide(keep.map((id) => [agents.get(id).node, aTop.get(id)]));
     for (const id of ags) {
       const a = agents.get(id), r = rs.filter((x) => x.agent === id).pop(), ag = agentOf(id);
       if (a.icon !== (ag?.icon || "generic")) { a.icon = ag?.icon || "generic"; a.ic.replaceChildren(icon(a.icon)); }
@@ -1125,7 +1399,7 @@
     }
     for (const r of rs) for (const w of [...r.order, ...(r.left || [])]) { wOf.set(seat(w), w); rOf.set(seat(w), r.id); }
     const before = new Map([...rows].map(([id, row]) => [id, row.li.getBoundingClientRect().top]));
-    for (const [id, row] of rows) if (!ids.includes(id)) { row.li.remove(); row.wire.remove(); rows.delete(id); }
+    for (const [id, row] of rows) if (!ids.includes(id)) { leave(row.li); row.wire.remove(); rows.delete(id); }
     if (list.querySelector(".idle")) list.replaceChildren();
     for (const id of ids) {
       let row = rows.get(id);
@@ -1235,7 +1509,12 @@
       else if (w.routing === "usage") s = t("{n} tokens lately", { n: tokens(w.tokens || 0) });
       else if (w.aside) s = t("{api} only · after the others", { api: API[w.speaks] || w.speaks || t("any API") });
       else if (w.speaks) s = t("{api} only", { api: API[w.speaks] || w.speaks });
-      else s = w.kind === "key" ? t("API key") : t("one key");
+      else {
+        s = w.kind === "key" ? t("API key") : t("one key");
+        // an official key's balance, as its vendor tells it (the Usage page's)
+        const bal = balanceOf(w);
+        if (bal) s += " · " + t("Balance") + " " + bal;
+      }
       if (row.st.textContent !== s) row.st.textContent = s;
       const bar = w.known;
       row.li.classList.toggle("nobar", !bar);
@@ -1246,8 +1525,16 @@
       row.li.classList.toggle("rest", !!resting || gave.has(id));
       row.li.classList.toggle("left", !!w.unlisted);
       row.wire.classList.toggle("live", on);
-      if (on) row.wire.style.setProperty("--agent", hueOf(r.agent));
+      if (on) { row.wire.style.setProperty("--agent", hueOf(r.agent)); row.li.style.setProperty("--agent", hueOf(r.agent)); }
       row.wire.classList.toggle("rest", !!resting || !!w.unlisted);
+      // answering now: swept with light; its words come in anew as it changes
+      const busyRow = on && trying.has(id);
+      row.li.classList.toggle("rt-busy", busyRow);
+      const look = [on, busyRow, row.li.classList.contains("rest")].join();
+      if (row.look && row.look !== look && !still()) { row.st.classList.remove("flip"); void row.st.offsetWidth; row.st.classList.add("flip"); }
+      row.look = look;
+      // what it is doing for this request, and what its answer took: its latest try here
+      rowFacts(row, r, w, [...r.tries].reverse().find((x) => tryseat(r, x) === id), on, !!resting);
     }
     for (const s of subs.values()) {
       const lit = [...rows.values()].find((row) => row.li.classList.contains("on") && (row.up === s.key || row.up?.startsWith(s.key + ">")));
@@ -1255,7 +1542,9 @@
       s.wire.classList.toggle("live", !!lit);
       if (lit) s.wire.style.setProperty("--agent", lit.wire.style.getPropertyValue("--agent"));
     }
-    for (const [id, a] of agents) a.wire.classList.toggle("live", busy.has(id));
+    for (const [id, a] of agents) { a.wire.classList.toggle("live", busy.has(id)); a.node.classList.toggle("rt-busy", busy.has(id)); agentFacts(a, rs.filter((x) => x.agent === id).pop()); }
+    hubLight(rs, busy);
+    if (relay) { relay = false; layout(); } else beams();
   }
 
   // ---------- the log: how one request was routed ----------
@@ -1547,7 +1836,7 @@
       rerouted: done.reduce((n, r) => n + r.tries.filter((tr, i) => tr.rest && i < r.tries.length - 1).length, 0),
       errors: done.filter(failedRoute).length,
     } : traceTotals;
-    [counts.requests, counts.rerouted, counts.errors].forEach((n, i) => setText(statB[i], String(n)));
+    [counts.requests, counts.rerouted, counts.errors].forEach((n, i) => roll(statB[i], n));
     stats.title = t(scoped ? "Counts for the requests in this list" : "Counts since the gateway started");
     const failed = rs.some(failedRoute), btn = statB[2].parentElement;
     btn.setAttribute("aria-disabled", String(!failed));
@@ -1817,7 +2106,13 @@
       ids.add(r.id);
       let x = reqRows.get(r.id);
       if (!x || x.sig !== sig) {
-        const row = x = { sig, b: reqRow(r, said, how, tr, ag, meta, metrics, title) };
+        const was = x;
+        const row = x = { sig, how, b: reqRow(r, said, how, tr, ag, meta, metrics, title) };
+        // a request new to the list drops in with a flash; one that settles beats once
+        if (!still() && reqRows.size) {
+          const fx = !was ? (!rp && !day && now() - at(r.time) < 15e3 ? "fresh" : "") : was.how !== how ? "settle" : "";
+          if (fx) { row.b.classList.add(fx); setTimeout(() => row.b.classList.remove(fx), 950); }
+        }
         row.b.onclick = () => pick(row.r); // the request as it is when clicked
         reqRows.set(r.id, x);
       }
@@ -2015,27 +2310,9 @@
 
   const flying = new Map(); // packet → { id: the row it is at, agent }
 
-  // A magpie, drawn to fly: facing right, the dot it carries at the tip
-  // of its beak where the flight puts it; its wings beat from the shoulder.
-  const FLIER = '<g class="rt-lift"><g transform="scale(1.2) translate(-6.5 3.2)">'
-    + '<path class="wing far" d="M-14.5 -3.4C-16.5 -9.5 -14.2 -15 -8.6 -18.6C-9.4 -12.6 -9.6 -7.4 -9.2 -3.2Z"/>'
-    + '<path class="tail" d="M-31.5 3.1L-18.6 -1.8L-17.4 1.2L-30.8 4.6Z"/>'
-    + '<ellipse class="body" cx="-12.2" cy="-1.4" rx="7.6" ry="3.9"/>'
-    + '<ellipse class="belly" cx="-12.8" cy="0.4" rx="4.3" ry="1.6"/>'
-    + '<circle class="body" cx="-4.9" cy="-3.7" r="3.1"/>'
-    + '<path class="body" d="M-2.3 -4.8L1.4 -3.3L-2.3 -2.2Z"/>'
-    + '<g class="wing near"><path d="M-15.6 -3.2C-17.8 -10.2 -15.2 -16.4 -8.4 -20.4C-9.3 -13.6 -9.4 -7.8 -8.8 -2.8Z"/>'
-    + '<path class="bar" d="M-14.6 -5.6C-15.4 -10.4 -13.8 -14.4 -10.4 -17.2"/></g>'
-    + "</g></g>";
 
-  function bird(kind) {
-    if (still() || !shown()) return null;
-    const g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "rt-flier " + kind);
-    g.innerHTML = FLIER;
-    sky.appendChild(g);
-    return g;
-  }
+  // no bird carries a request now: it flies as a dot of light, its trail behind it
+  function bird() { return null; }
   // off it goes, up and away, once it has let go of the dot
   function away(b) {
     if (!b) return;
@@ -2079,7 +2356,7 @@
       if (!r.tries.length) { // routing hasn't picked yet: to magpie, to wait there
         await fly(dot, carrier, [{ p: A.wire }], 620);
         from = tip(A.wire, true);
-        tick(hub);
+        tick(hub, hueOf(r.agent));
       }
       for (let i = 0; g === gen; ) {
         r = rt();
@@ -2093,7 +2370,7 @@
         if (!row) { i++; continue; }
         flying.set(dot, { id: tryseat(r, r.tries[i]), agent: r.agent });
         if (!carrier) carrier = bird("req");
-        if (from) tick(hub);
+        if (from) tick(hub, hueOf(r.agent));
         const ws = wiresTo(row);
         const out = [via(from || tip(A.wire, true), tip(ws[0], false)), ...ws.map((p) => ({ p }))];
         await fly(dot, carrier, from ? out : [{ p: A.wire }, ...out], from ? 900 : 1400);
@@ -2150,7 +2427,7 @@
       away(carrier);
       away(back);
       flying.delete(dot);
-      dot.remove();
+      drop(dot);
       if (playing.get(id) === g) playing.delete(id);
       renderAll();
     }
@@ -2166,7 +2443,7 @@
   // clears up after itself
   function stopPlays() {
     gen++; flying.clear(); playing.clear();
-    for (const p of sky.querySelectorAll(".pkt, .rt-flier")) p.remove();
+    for (const p of sky.querySelectorAll(".pkt, .rt-flier, .trail, .burst, linearGradient")) p.remove();
     wake();
   }
 
@@ -2326,7 +2603,8 @@
   // than a bird banks
   function pose(tr, e) {
     for (const l of tr.legs) if (l.j) l.j();
-    const lens = tr.legs.map((l) => l.p.isConnected && l.p.getAttribute("d") && l.p.getTotalLength?.() || 0);
+    // a way through the gateway is longer by the moment it is held in its core
+    const lens = tr.legs.map((l) => { const d = l.p.isConnected && l.p.getAttribute("d"); return d ? (l.p.getTotalLength?.() || 0) + (l.dwell || 0) : 0; });
     const total = lens.reduce((a, b) => a + b, 0);
     const point = (d) => {
       d = Math.max(0, Math.min(total, d));
@@ -2334,13 +2612,22 @@
       // a leg not laid out has nowhere to be on: passed over
       while (i < lens.length - 1 && (d > lens[i] || !lens[i])) { d -= lens[i]; i++; }
       const l = tr.legs[i];
-      return l.p.getPointAtLength(l.rev ? lens[i] - d : d);
+      let x = l.rev ? lens[i] - d : d;
+      if (l.dwell) x = x <= l.mid ? x : x <= l.mid + l.dwell ? l.mid : x - l.dwell;
+      return l.p.getPointAtLength(x);
     };
     if (!total) return;
     const d = e * total, pt = point(d);
     tr.dot.setAttribute("cx", pt.x);
     tr.dot.setAttribute("cy", pt.y);
     tr.dot.removeAttribute("visibility");
+    trail(tr.dot, point, d);
+    // through the gateway: it beats as the dot crosses it
+    let at_ = 0, k = 0;
+    while (k < lens.length - 1 && at_ + lens[k] < d) at_ += lens[k++];
+    const lg = tr.legs[k], x = d - at_, held = !!lg?.dwell && x >= lg.mid && x <= lg.mid + lg.dwell;
+    tr.dot.classList.toggle("in-core", held);
+    if (held && !tr.thru) { tr.thru = true; tick(hub, tr.dot.style.getPropertyValue("--agent")); }
     const b = tr.bird;
     if (!b) return;
     const p0 = point(d - 3), p1 = point(d + 3);
@@ -2394,6 +2681,7 @@
       }
       if (ts < flipUntil) layout();
       if (capQ.length && ts - capAt > (capLo && !capQ[0].lo ? 500 : 1700)) show(capQ.shift());
+      if (ts - clockAt > 100) { clockAt = ts; tickClocks(); }
     } else pause();
     if (vis) ticking = requestAnimationFrame(frame);
   }
@@ -2525,7 +2813,7 @@
     }
   }
 
-  function hubText() { hubSub.textContent = (providers?.gateway?.url || "").replace(/^https?:\/\//, "") || t("gateway"); }
+  function hubText() { setText(hubName, t("Gateway")); hubSub.textContent = (providers?.gateway?.url || "").replace(/^https?:\/\//, "") || t("gateway"); }
 
   // labels in the page's language, and again when it changes
   function words() {
@@ -2538,7 +2826,7 @@
   }
   new MutationObserver(words).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
   // a count follows Settings' number units, the panel's "today" with it
-  document.addEventListener("magpie-costs-changed", () => { steady(renderHist); renderPanel(); });
+  document.addEventListener("magpie-costs-changed", () => { steady(() => { renderHist(); if (shown()) render(); }); renderPanel(); });
 
   // ---------- routing groups ----------
   // The groups agents can pick as one model (group/<id>): the user's, and
@@ -4155,7 +4443,11 @@
     return b;
   }
 
-  new ResizeObserver(() => layout()).observe(stage);
+  // the columns too: a node grown by what it says moves the ones below it, and
+
+  // the wires, the gateway's ports and the way through it must move with them
+
+  { const ro = new ResizeObserver(() => layout()); for (const n of [stage, srcs, hub, list]) ro.observe(n); }
   // the list is as tall as leaves the stage in sight above it: the reader
   // scrolls the list, not the page, and a request picked plays in view.
   // Its top stays where it is as it is sized, so a row just clicked does too

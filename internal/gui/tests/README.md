@@ -1,5 +1,30 @@
 # Dropdown browser regression
 
+## Routing and Usage motion
+
+`routing-try-fixed.test.cjs` covers the live core count and timers, readable
+and interactive live nodes, reduced motion, the account metric picker and Routing balance reads preserving the
+Usage quota cache. `usage/motion.test.cjs` checks real ledger-shaped model
+shares, separate cache ownership, a period pick or refresh during a chart
+read, failed reads retaining the original timeline, account identity across
+reordering, narrow layouts and live reduced-motion changes. Both use isolated
+API fixtures in Chromium and WebKit. `routing-flood.test.cjs` counts visible
+request lights on rendered frames; a covered window's queued DOM is not a
+painted frame. `number-units.test.cjs` checks both kinds of Usage chart and
+the tray after switching number units.
+
+`usage/layout.test.cjs` checks the five summary cells, chart/ranking layout,
+nine primary request columns, row details, chart options, filter disclosures
+and gateway-only model drilldown at desktop and narrow widths, in five
+languages and both engines. `MAGPIE_USAGE_BASELINE` can point at a source
+backup to serve those original asset bytes without replacing the live
+workspace; the old layout fails its five-cell assertion. `ARTIFACT_DIR`
+keeps the Chinese light/dark and narrow screenshots.
+
+```sh
+node --test internal/gui/tests/routing-try-fixed.test.cjs internal/gui/tests/routing-flood.test.cjs internal/gui/tests/usage/motion.test.cjs
+```
+
 ## Installed desktop fonts
 
 `fonts.test.cjs` exercises the interface/code font controls with installed

@@ -618,7 +618,7 @@ func revalidated(next http.Handler) http.Handler {
 }
 
 // pageFile is a script or stylesheet of the page's own, named in it.
-var pageFile = regexp.MustCompile(`(src|href)="([A-Za-z0-9_.-]+\.(?:js|css))"`)
+var pageFile = regexp.MustCompile(`(src|href)="((?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.(?:js|css))"`)
 
 // versionedPage is the page with each of its own scripts and stylesheets
 // named with its content's hash; one not among the page's files (boot.js,

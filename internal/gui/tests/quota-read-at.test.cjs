@@ -57,8 +57,8 @@ function serve(lang, data) {
 }
 
 const words = {
-  en: { updated: "Updated 40 minutes ago", asOf: /^As of /, latest: "Latest readings:" },
-  zh: { updated: "40分钟前更新", asOf: /^截至|^As of/, latest: "最近的读数：" },
+  en: { updated: "Updated 40 minutes ago", asOf: /^As of / },
+  zh: { updated: "40分钟前更新", asOf: /^截至|^As of/ },
 };
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
@@ -86,12 +86,6 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
 
       assert.equal(await page.locator(".subscription-card", { hasText: "Kimi" }).locator(".quota-read").count(), 0, "a failed reading says no time");
 
-      // the latest readings, newest first, on the window's key
-      const key = claude.locator(".quota-curve .qc-key").first();
-      const title = (await key.getAttribute("title")).split("\n");
-      assert.equal(title[2], w.latest, title.join(" | "));
-      assert.deepEqual(title.slice(3).map((l) => l.replace(/ · .*/, "")), ["72%", "↻ 100%", "35%"]);
-      assert.equal(await claude.locator(".quota-curve button").count(), 0, "no control on the card");
       assert.deepEqual(errors, []);
     });
   }

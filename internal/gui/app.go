@@ -535,6 +535,11 @@ func singleInstance(h *host) *application.SingleInstanceOptions {
 	// second launch of the installed magpie on the same config
 	if devBuild {
 		id += ".dev"
+		// Each source checkout owns its development window. Opening one
+		// must never hand its page to a different checkout's running shell.
+		_, source, _, _ := runtime.Caller(0)
+		root := sha256.Sum256([]byte(source))
+		id += "." + hex.EncodeToString(root[:6])
 	}
 	return &application.SingleInstanceOptions{
 		UniqueID: id,

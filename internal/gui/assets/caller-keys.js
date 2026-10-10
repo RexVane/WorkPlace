@@ -339,7 +339,7 @@ function limitCost(v) {
   if (!s) return 0;
   return /^\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN;
 }
-const usd = (n) => "$" + (n >= 100 ? n.toFixed(0) : n.toFixed(2));
+const usd = (n) => "$" + (+n || 0).toFixed(2);
 
 // gatewayLimitBadge opens a key's limit editor: "Limit" on hover when it
 // has none, else what it has used, "1.2M / 2M · day", always shown.
