@@ -199,3 +199,20 @@
 - 验证：3425 的 `/api/hello` 返回 `{"name":"magpie","version":"dev"}`；用 Claude Code 的 token（`Bearer magpie`）请求 `/v1/models` 认证通过、返回 115 个模型（含 `claude/claude-opus-5-5` 等）；3437 预览正常。
 - 影响文件：仓库外 `C:\Users\guica\.claude\settings.json`（连同 `.bak-20261009-224907`）；仓库内无代码改动。
 - 下一步：用户决定是否按「Opus 官方、Sonnet/Haiku 走路由组」改档位；若要「官方只服务 Opus」，需建一个排除 `claude/*` 的自定义组（自动组 `group/auto-claude-*` 含官方账号，达不到该目的）。另注意 3425 现由源码实例占用，将来构建 exe 前需先停它或依赖 magpie 自身的接管逻辑。
+
+## 2026-10-11 01:00 +08:00 | deepseek-flash | 把 magpie visible 搬进 Agents 页：模型列表加「范围」整组勾选
+- 改了什么：
+  - 起因：用户说「一个 Agent 里装了一堆模型」。定下 A 方案：把 CLI 的 `magpie visible` 白名单搬进 GUI，落到已有的 `settings.Visible`（家族 / 供应商 id / 路由组 id），不新造状态。
+  - `internal/provider/visible.go`：新增 `SetVisible(agent, names)`（写 `Visible`；空即删、相同即不写，改写后 `catalog.Touched()` 让 agent 自己的模型清单跟着重写）、`ScopeKind`/`ScopeName` 与 `ScopeNames()`（列出全部可选名及各自会显示的条目数；取自 `Served()`，即全目录而非某 agent 的，被范围挡掉的名字仍能勾回来；家族名优先于同名供应商）。
+  - `internal/gui/agent_models.go`：`agentModelJSON` 加 `Candidates`（这个模型能被哪些名字显示，即 `Entry.Names()`）；新增 `scopeJSON`/`scopeUsed` 与 `agentScopeAPI`——`GET /api/agent-scope/{id}` 读范围与「已显示 / 全目录 / 范围名数」，`POST` 写范围并回带收窄后的模型列表、计数与范围，前端据此重画。`api.go` 里注册。
+  - `internal/gui/assets/app.js`：模型列表工具栏加「范围」按钮，点开在列表的位置显示范围面板（家族 / 供应商 / 路由组三段，逐名勾选，头部 `n / 全部`，说明「后加的名字照样显示，直到你取消勾选」）。勾掉一个名立即保存并按新目录重画列表；被范围排除的模型仍留在列表里但变暗，悬停提示去「范围」勾回来；把最后一个名也勾掉时报「总得能看到点什么」并拒绝；目录提供的名字全勾上时保存为空（不钉死整份名单，页脚文案随之改）。范围在**打开列表时**就读（不是在打开面板时），按钮显示已保留几个名字（`Range: 3` / `Range: all models`）；本机实测中发现并修掉一个 bug：有已保存范围时按钮错显「all models」，因为范围要等点开面板才加载。
+  - `internal/gui/assets/app.css`：范围按钮与面板样式（`.am-scope`、`.am-sheet`、`.am-sr`、`.am-mr.out` 等）；范围打开时隐藏搜索与左侧 rail。
+  - `internal/gui/assets/i18n.js`：11 条新文案的 zh / zh-TW / ja / de 翻译（按钮文案用不带单位的 `Range: {n}`，避免各语言单复数问题）。**注意**：该文件在 git 里一直是 UTF-16LE + CRLF（全仓仅此一个），本轮编辑后工作区为 UTF-8 + LF，所以这次提交它整文件显示为改动；内容已逐行比对，只有新增 44 行，无任何删改。
+  - 文档：`docs/subsystems/gui-shell.md` 加「An agent's range sheet」小节与验证命令；`docs/subsystems/agent-wiring.md` 约束里加「An agent's range」一条（含「不改 agent 自身配置字段、不会把已在用该模型的 agent 挪走」）。
+- 验证：
+  - `go test -tags nogui ./internal/provider`（228s）与 `./internal/settings` 全通过；新增 `TestScopeNamesOffersEveryName`、`TestSetVisibleNarrows`、`TestAgentScopeAPI` 通过。
+  - `go test -tags nogui ./internal/gui`：新增用例通过；另有 4 个与本改动无关的既有失败（`TestGatewayHeldByAContainer`、`TestGatewayFixQuitsOnlyAMagpie`、`TestPurposeAssetMatchesUsage`、`TestUpdateThatWontStart`）——已 `git stash -u` 回基线复跑，确认同样失败。
+  - 浏览器（Chromium + WebKit；`NODE_PATH=D:\AIApp\magpie-verify\ui-deps\node_modules`）：新增 `internal/gui/tests/agent-scope.test.cjs`（en + zh）4 个全过；`agent-models.test.cjs`、`agent-models-picker`、`agent-models-redraw`、`agent-model-groups`、`agent-models-all-hidden`、`i18n-keys`、`gui-ja`、`gui-de`、`gui-zh-tw` 的一致性用例全过。
+  - 既有失败（非本轮引入）：`gui-zh-tw.test.cjs` 的窗口用例期望 `6.8 萬`、实际 `6.81 萬`（上一轮「全站 2 位小数」的遗留，基线同样失败）；`internal/agent` 的 `TestSuffixModesReachAgentFiles`、`TestCodexStaleOnlyForMagpiesChange`、`TestVSCodium`、`TestZedRelativeConfigDirUsesDefault` 等在本机基线上同样失败（环境相关）。
+- 影响文件：`internal/provider/visible.go`、`internal/gui/agent_models.go`、`internal/gui/api.go`、`internal/gui/assets/app.js`、`internal/gui/assets/app.css`、`internal/gui/assets/i18n.js`、`internal/provider/visible_scope_test.go`（新）、`internal/gui/agent_scope_test.go`（新）、`internal/gui/tests/agent-scope.test.cjs`（新）、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
+- 下一步：用户在开发实例里实际点一遍「范围」；若嫌逐个名字太细，可再加「只看路由组 / 只看供应商」的快捷段；`i18n.js` 要不要补一条 `.gitattributes`（`text eol=lf`）以免以后再出整文件 diff，等用户定。

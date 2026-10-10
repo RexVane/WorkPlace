@@ -3046,6 +3046,13 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-seg { display: inline-flex; flex: none; padding: 2px; border-radius: 8px; background: var(--seg-track); }
 .am-seg button { height: 24px; padding: 0 9px; border: 0; border-radius: 6px; background: none; color: var(--ctl-fg); font: inherit; font-size: 12px; cursor: pointer; transition: background-color .15s, color .15s; }
 .am-seg button.on { background: var(--seg-thumb); color: var(--fg); box-shadow: var(--seg-edge); }
+/* the range the agent's lists are narrowed to (`magpie visible`): the
+   button opens the sheet, and carries how many names are in it */
+.am-scope { flex: none; height: 28px; max-width: 132px; padding: 0 9px; border: 0; border-radius: 8px; background: var(--pill); color: var(--ctl-fg); font: inherit; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background-color .15s, color .15s; }
+.am-scope:hover { background: var(--accent-soft); color: var(--fg-2); }
+.am-scope.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.am-scope:focus-visible { outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+.am-scope:disabled { color: var(--faint); cursor: default; }
 .am-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 2px; }
 /* the providers down the left (蓝猫 on Discord), the models of the one
    picked beside them, each scrolling on its own */
@@ -3115,6 +3122,31 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-or .ix { flex: none; min-width: 16px; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; }
 .am-order.sorting .am-or { transition: transform .22s cubic-bezier(.22, 1, .36, 1); cursor: grabbing; }
 .am-order .am-or.dragging { position: relative; z-index: 2; transition: none; background: var(--pop-bg); box-shadow: 0 6px 18px rgba(20, 22, 30, .12), 0 0 0 1px var(--line); }
+
+/* ---- the range sheet (settings' Visible, `magpie visible`) ---------------- */
+/* In the list's own place: the names the catalog offers — families,
+   providers, routing groups — each ticked or not. A model the range leaves
+   out stays listed but dimmed, and says why when the pointer rests on it. */
+.pop.am-pop.range .am-search, .pop.am-pop.range .am-rail { display: none; }
+.am-sheet { padding: 2px 0 4px; }
+.am-sh { display: flex; align-items: baseline; gap: 8px; margin: 4px 12px 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.am-sh .sp { flex: 1; }
+.am-sh .c { font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+.am-sheet .am-d { margin: 0 12px 8px; }
+/* a section's head: the list's, without its twisty or its "hide all" */
+.am-sg > .am-gh { margin-top: 8px; }
+.am-sg .am-fold { gap: 0; cursor: default; }
+/* a name's row: the title column wider than a model row's, its size at the
+   right, its tick in the same column as the models' */
+.am-sr { height: 30px; gap: 8px; padding-right: 12px; }
+.am-sr .n { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; }
+.am-sr .am-id, .am-sr .am-sc-n { flex: none; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.am-sr .am-id { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-sr.off .am-id, .am-sr.off .am-sc-n { opacity: .7; }
+.am-mr.out .n { color: var(--faint); }
+.am-mr.out .lg { opacity: .45; }
+.am-mr.out .x { opacity: .5; }
+.am-mr.out .ck { opacity: .35; }
 
 /* ---- an agent's switch onto magpie ---------------------------------------- */
 /* the rows drawn again under the line said beneath each name had WebKit's

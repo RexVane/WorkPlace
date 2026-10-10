@@ -193,6 +193,27 @@ ties. Family changes keep a matching style where possible, otherwise the
 nearest regular face; named variable instances are offered without arbitrary
 axis controls.
 
+### An agent's range sheet
+
+The model list under an agent's name on the Agents page carries a **Scope**
+button (`GET /api/agent-scope/{id}`), which opens a sheet of every family,
+provider id and routing group id magpie has: the agent's range
+(`settings.Visible`), the same field `magpie visible` writes and the
+gateway and the agents' own files read (see [Agent wiring](agent-wiring.md)).
+Every name starts ticked for an agent with no range; unticking one saves at
+once and the list is drawn again from the narrowed catalog the answer
+carries (`POST /api/agent-scope/{id}`), models the range keeps out dimmed
+and never reaching the agent's picker or its files. A name whose every
+model the range leaves out stays in the sheet, so it can be ticked back;
+ticking every name the catalog offers saves nothing at all rather than
+pinning them, which is what keeps a model, provider or group added later
+shown. The range is read as the list opens rather than when the sheet does:
+the button says how many names are kept (`Range: 3`, or `Range: all models`)
+and the foot what a name added later does. The sheet is drawn in the list's
+own place inside the pop rather than as a modal over the page, and
+`agentModelJSON.Candidates` is what tells the list which names would show a
+model. `TestAgentScopeAPI` and `agent-scope.test.cjs` cover it.
+
 ### Shared UI rules
 
 - Every user-visible string has zh, zh-TW, ja and de translations with the same placeholders. `gui-zh-tw.test.cjs`, `gui-ja.test.cjs` and `gui-de.test.cjs` fail on a missing one; `gui-zh-tw.test.cjs` also fails on a zh-TW string with a Simplified character left in it.
@@ -217,6 +238,8 @@ waits for `show` to accept navigation before creating its draft.
 
 ```sh
 go test -tags nogui ./internal/gui
+go test -tags nogui ./internal/gui -run '^TestAgentScopeAPI$'
+node --test internal/gui/tests/agent-scope.test.cjs
 go test -v ./internal/fonts         # native discovery on each desktop OS
 make test-ui                      # every internal/gui/tests/*.test.cjs, Chromium and WebKit
 BROWSER=webkit node --test internal/gui/tests/click-scroll.test.cjs

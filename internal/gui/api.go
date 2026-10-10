@@ -1647,6 +1647,7 @@ func Handler(w Windows, gw *gateway.Server) http.Handler {
 		rw.WriteHeader(http.StatusNoContent)
 	})
 	agentModelsAPI(mux)
+	agentScopeAPI(mux)
 	devListen(mux)
 	return held(mux)
 }

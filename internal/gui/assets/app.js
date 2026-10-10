@@ -2323,7 +2323,14 @@ async function openAgentModels(a, anchor, ev) {
   const segAll = el("button", "on", t("All")), segOn = el("button", "", t("Shown")), segOrder = el("button", "", t("Order"));
   segAll.type = segOn.type = segOrder.type = "button";
   seg.append(segAll, segOn, segOrder);
-  tools.append(search, seg);
+  // the range the agent's lists are narrowed to (`magpie visible`): which
+  // providers, families and routing groups are in it, ticked in the sheet
+  // this opens. It is what Settings' Visible holds, so the agent's own
+  // config files and the gateway's model list follow it too
+  const scopeBtn = el("button", "am-scope");
+  scopeBtn.type = "button";
+  scopeBtn.setAttribute("aria-expanded", "false");
+  tools.append(search, scopeBtn, seg);
   const list = el("div", "am-list");
   const foot = el("div", "am-foot");
   // every one at once, the model in use aside
@@ -2377,11 +2384,11 @@ async function openAgentModels(a, anchor, ev) {
     };
     const all = el("span", "ic");
     all.append(svg("M3 4.5h10M3 8h10M3 11.5h10", 14, 1.5));
-    item("", t("All providers"), all, models.filter((m) => !m.hidden).length, models.length);
+    item("", t("All providers"), all, models.filter((m) => !m.hidden && inScope(m)).length, models.length);
     for (const g of groups) {
       const route = g.name === ROUTING_GROUPS;
       item(g.name, route ? t(g.name) : g.name, route ? svg(FAN, 14, 1.5) : icon(g.icon || "generic"),
-        g.models.filter((m) => !m.hidden).length, g.models.length);
+        g.models.filter((m) => !m.hidden && inScope(m)).length, g.models.length);
     }
     rail.scrollTop = top;
   };
@@ -2389,6 +2396,8 @@ async function openAgentModels(a, anchor, ev) {
   let onlyShown = false, kept = new Set();
   // under "Order", the models shown, as the agent lists them
   let ordering = false;
+  // and the range sheet, in the list's own place while it is open
+  let scoping = false;
 
   const me = agentModels = { a, anchor, box, saving: Promise.resolve(), changed: false };
   const save = () => {
@@ -2477,6 +2486,7 @@ async function openAgentModels(a, anchor, ev) {
   };
   const draw = () => {
     if (ordering) return drawOrder();
+    if (scoping && scopeData) return drawSheet();
     const top = list.scrollTop;
     list.replaceChildren();
     const words = q.value.trim().toLowerCase();
@@ -2486,7 +2496,7 @@ async function openAgentModels(a, anchor, ev) {
       const rows = g.models.filter((m) => (!onlyShown || !m.hidden || kept.has(m.id)) &&
         (!words || [m.name, m.id, g.name].some((s) => s.toLowerCase().includes(words))));
       if (!rows.length) continue;
-      const on = g.models.filter((m) => !m.hidden).length;
+      const on = g.models.filter((m) => !m.hidden && inScope(m)).length;
       const folded = !words && !pick && shut.has(g.name);
       const sec = el("section", "am-g" + (folded ? " shut" : "") + (g.name === ROUTING_GROUPS ? " routes" : ""));
       const gh = el("div", "am-gh");
@@ -2512,6 +2522,7 @@ async function openAgentModels(a, anchor, ev) {
       sec.append(gh);
       if (!folded) {
         const body = el("div", "am-rows");
+        const drawn = [];
         for (const m of rows) {
           const r = el("button", "am-mr" + (m.hidden ? " off" : "") + (m.inUse ? " lock" : ""));
           r.type = "button";
@@ -2545,7 +2556,12 @@ async function openAgentModels(a, anchor, ev) {
             draw();
           };
           body.append(r);
+          drawn.push({ r, m });
         }
+        // the ones the range leaves out stay listed, dimmed: the sheet is
+        // where they come back, and what is out of it is otherwise missing
+        // without a word
+        markRows(drawn);
         sec.append(body);
       }
       list.append(sec);
@@ -2558,9 +2574,203 @@ async function openAgentModels(a, anchor, ev) {
     hideAll.disabled = !models.some((m) => !m.hidden && !m.inUse);
   };
   q.oninput = () => { list.scrollTop = 0; draw(); };
+  // ---- the range sheet ------------------------------------------------------
+  // The names the catalog offers — families, provider ids, routing group
+  // ids — and the ones this agent's lists are narrowed to (settings'
+  // Visible, as `magpie visible <agent> <name>…` writes it). The sheet is
+  // drawn in the list's own place inside the pop, not over the page, so a
+  // name unticked takes its models out of the list under it at once.
+  //
+  // picked is the whole set less what the user unticked, or null for an
+  // agent that has no range at all — which is the same thing, and is what
+  // the sheet starts from: every name ticked. An unbroken whole set is
+  // saved as nothing rather than pinning every name, so a model, provider
+  // or group added later is still shown.
+  let scopeData = null, scopeLoading = null, picked = null;
+  const scopeAll = () => (scopeData?.all || []);
+  const scopeUsed = () => scopeData?.used;
+  const lower = (xs) => new Set(xs.map((x) => String(x).toLowerCase()));
+  // inScope: whether any name of the agent's range shows this entry. The
+  // list dims the ones it doesn't, which is every one while the sheet is
+  // open and the whole set is still what it has.
+  const inScope = (m) => !picked || m.candidates.some((c) => picked.has(String(c).toLowerCase()));
+  const markRows = (rows) => {
+    for (const { r, m } of rows) {
+      const out = !inScope(m);
+      r.classList.toggle("out", out);
+      if (out) r.title = t("Outside {agent}'s range: tick it back under Scope", { agent: a.name });
+    }
+  };
+  // keptNames: how many names the agent's range holds — the sheet's own
+  // while it is open, else what was saved, and 0 when it has no range at all
+  const keptNames = () => (picked ? picked.size : scopeUsed()?.names || 0);
+  const drawScopeButton = () => {
+    const n = keptNames();
+    scopeBtn.textContent = n ? t("Range: {n}", { n }) : t("Range: all models");
+    scopeBtn.classList.toggle("on", n > 0);
+    scopeBtn.title = t("Which providers, families and routing groups {agent} is shown", { agent: a.name });
+  };
+  // footNote says what the foot is about — the list, its order, or the
+  // range that is keeping models out of it
+  const drawFootNote = (order = false) => {
+    if (order) {
+      footNote.textContent = a.id.split("@wsl:")[0] === "codex" ? t("Drag to put them in the order {agent} lists them; new models go last", { agent: a.name })
+        : t("Drag to put them in the order magpie hands them to {agent}; new models go last", { agent: a.name });
+      return;
+    }
+    footNote.textContent = keptNames() ? t("New models are shown, except where the range keeps them out") : t("New models are shown");
+  };
+  // materialize: the range as the sheet opens on it. An agent with no range
+  // at all has every name the catalog offers — that is what a range with no
+  // names means — and one whose range is saved has the names it holds. A
+  // name the narrowed catalog no longer lists stays in the range: nothing
+  // unticked it.
+  const materialize = () => {
+    if (picked) return;
+    picked = new Set(scopeData.names.map((n) => String(n).toLowerCase()));
+    if (picked.size) return;
+    for (const s of scopeAll()) picked.add(s.name.toLowerCase());
+  };
+  // sheetNames: what to save — nothing at all when every name the catalog
+  // offers is ticked still, so a name added later is shown too; else every
+  // name the range holds.
+  const sheetNames = () => {
+    const offered = scopeAll().map((s) => s.name.toLowerCase());
+    if (offered.every((n) => picked.has(n))) return [];
+    const keep = lower([...picked]);
+    const names = scopeAll().map((s) => s.name).filter((n) => keep.has(n.toLowerCase()));
+    for (const n of scopeData.names) if (keep.has(String(n).toLowerCase()) && !names.some((x) => x.toLowerCase() === String(n).toLowerCase())) names.push(n);
+    return names;
+  };
+  // loadScope: the range and every name it may hold, read once. The button
+  // carries how many names are kept, so this goes as the list opens rather
+  // than when the sheet first does.
+  const loadScope = async () => {
+    if (scopeData) return scopeData;
+    if (scopeLoading) return scopeLoading;
+    scopeLoading = api("agent-scope/" + encodeURIComponent(a.id)).then(async (r) => {
+      scopeData = { names: r.scope?.names || [], all: r.scope?.all || [], used: r.used };
+      if (scoping || agentModels === me) { drawScopeButton(); drawFootNote(); }
+      return scopeData;
+    }).catch((err) => {
+      scopeData = null;
+      throw err;
+    }).finally(() => { scopeLoading = null; });
+    return scopeLoading;
+  };
+  // offeredPicked: how many of the names the catalog offers the range holds
+  // — what the sheet's head counts, and what has to stay above none.
+  const offeredPicked = () => scopeAll().filter((s) => picked.has(s.name.toLowerCase())).length;
+  const drawSheet = () => {
+    const top = list.scrollTop;
+    list.replaceChildren();
+    const sheet = el("div", "am-sheet");
+    const sh = el("div", "am-sh");
+    sh.append(el("span", "", t("Scope")), el("span", "sp"),
+      el("span", "c", t("{n} of {all}", { n: offeredPicked(), all: scopeAll().length })));
+    sheet.append(sh);
+    sheet.append(el("div", "am-d", t("Tick the providers, families and routing groups {agent} is shown. One added later is shown too, until you untick one.", { agent: a.name })));
+    const section = (title, rows) => {
+      const sec = el("section", "am-g am-sg");
+      const gh = el("div", "am-gh");
+      const head = el("div", "am-fold");
+      head.append(el("span", "gn", title));
+      gh.append(head);
+      sec.append(gh);
+      const body = el("div", "am-rows am-srows");
+      for (const s of rows) {
+        const key = s.name.toLowerCase();
+        const on = picked.has(key);
+        const r = el("button", "am-mr am-sr" + (on ? "" : " off"));
+        r.type = "button";
+        r.setAttribute("role", "menuitemcheckbox");
+        r.setAttribute("aria-checked", String(on));
+        r.title = s.kind === "group" && s.label && s.label !== s.name ? s.name + " · " + s.label : s.name;
+        const name = el("span", "n", s.kind === "group" && s.label ? s.label : s.name);
+        if (s.kind === "group" && s.label && s.label !== s.name) name.append(el("span", "am-id", s.name));
+        const ck = el("span", "ck");
+        if (on) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
+        r.append(name, el("span", "am-sc-n", t("{n} models", { n: String(s.entries) })), ck);
+        r.onclick = () => {
+          if (on && offeredPicked() <= 1) return void status(t("{agent} has to be shown something", { agent: a.name }), "warn");
+          on ? picked.delete(key) : picked.add(key);
+          drawSheet();
+          drawScopeButton();
+          drawFootNote();
+          saveScope();
+        };
+        body.append(r);
+      }
+      sec.append(body);
+      return sec;
+    };
+    const of = (kind) => scopeAll().filter((s) => s.kind === kind)
+      .sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
+    for (const [kind, title] of [["family", t("Families")], ["provider", t("Providers")], ["group", t("Routing groups")]]) {
+      const rows = of(kind);
+      if (rows.length) sheet.append(section(title, rows));
+    }
+    if (!scopeAll().length) sheet.append(el("div", "am-none", t("No matches.")));
+    list.append(sheet);
+    list.scrollTop = top;
+  };
+  scopeBtn.onclick = async (e) => {
+    e.stopPropagation();
+    if (ordering) view(false); // the sheet has no order to drag
+    scoping = !scoping;
+    box.classList.toggle("range", scoping);
+    if (!scoping) { picked = null; drawScopeButton(); drawFootNote(); draw(); return; }
+    scopeBtn.disabled = true;
+    try {
+      await loadScope();
+    } catch (err) {
+      status(err.message, "err");
+      scoping = false;
+      box.classList.remove("range");
+      draw();
+      return;
+    }
+    if (agentModels !== me) return; // the list was closed while it loaded
+    scopeBtn.disabled = false;
+    materialize();
+    drawScopeButton();
+    drawFootNote();
+    draw();
+  };
+  // saveScope: the range as the sheet stands, written at once. The models
+  // the page then draws come from the narrowed catalog the answer carries,
+  // so the list, the count under the agent's name and the gateway's model
+  // list all agree.
+  const saveScope = () => {
+    if (!picked) return;
+    const names = sheetNames();
+    if (JSON.stringify(names) === JSON.stringify(scopeData.names)) return;
+    me.changed = true;
+    me.saving = me.saving.then(async () => {
+      const r = await api("agent-scope/" + encodeURIComponent(a.id), { names });
+      scopeData = { names: r.scope?.names || [], all: r.scope?.all || scopeData.all, used: r.used };
+      if (r.models) {
+        const was = new Map(models.map((m) => [m.id, m]));
+        models.splice(0, models.length, ...r.models.map((m) => was.get(m.id) || m));
+        regroup();
+        if (pick && !groups.some((g) => g.name === pick)) pick = ""; // the picked one went with the range
+      }
+      if (r.count) { me.count = a.models = r.count; fillModelsEntry(me.anchor, a); }
+      state = await api("state");
+      renderAgents();
+      drawScopeButton();
+      drawFootNote();
+      draw();
+    }).catch((err) => status(err.message, "err"));
+  };
+  drawScopeButton();
   const view = (shown, order = false) => {
     onlyShown = shown;
     ordering = order;
+    scoping = false; // the range sheet is the list's own place, not a view of it
+    picked = null;
+    box.classList.remove("range");
+    drawScopeButton();
     kept = new Set();
     segAll.classList.toggle("on", !shown && !order);
     segOn.classList.toggle("on", shown && !order);
@@ -2571,9 +2781,7 @@ async function openAgentModels(a, anchor, ev) {
     // Codex's /model, in WSL too, lists them as handed (#855); another
     // agent is handed them in it, and one that sorts its own menu may sort
     // them again
-    footNote.textContent = !order ? t("New models are shown")
-      : a.id.split("@wsl:")[0] === "codex" ? t("Drag to put them in the order {agent} lists them; new models go last", { agent: a.name })
-      : t("Drag to put them in the order magpie hands them to {agent}; new models go last", { agent: a.name });
+    drawFootNote(order);
     if (order) foot.replaceChildren(footNote, el("span", "sp"), unorder);
     else foot.replaceChildren(footNote, el("span", "sp"), hideAll, el("span", "am-dot", "·"), reset);
     list.scrollTop = 0;
@@ -2629,6 +2837,11 @@ async function openAgentModels(a, anchor, ev) {
     for (const m of models) if (!m.inUse && !m.hidden) { m.hidden = true; kept.add(m.id); }
   });
   draw();
+  // the range the agent's lists are narrowed to, read as the list opens: the
+  // button carries how many names it holds, and a list left open while it
+  // loaded is drawn again. A failure says nothing here — the sheet reports
+  // its own, and the button stays on what it knows.
+  loadScope().catch(() => {});
 
   document.body.append(box);
   // under the line, or over it where there's no room; the list scrolls
