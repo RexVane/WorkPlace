@@ -3143,6 +3143,12 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-sr .am-id, .am-sr .am-sc-n { flex: none; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
 .am-sr .am-id { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .am-sr.off .am-id, .am-sr.off .am-sc-n { opacity: .7; }
+/* a routing group's switch: the app's own, so it slides as every other
+   switch does (library.css). A family's and a provider's stay a tick:
+   what they take away is their models, not a way through magpie */
+.am-sr.sw { height: 34px; }
+.am-sr.sw .lib-switch { margin-left: 2px; }
+.am-sr.sw.off .n { color: var(--muted); }
 .am-mr.out .n { color: var(--faint); }
 .am-mr.out .lg { opacity: .45; }
 .am-mr.out .x { opacity: .5; }
@@ -3162,6 +3168,9 @@ body.window .row.agent > .ag-conn { margin-left: 12px; align-self: center; curso
    a line under its name, a link that opens it, its switch */
 .ag-lead { margin: 0 2px 12px; font-size: 12.5px; color: var(--fg-2); }
 .ag-lead b { font-weight: 600; color: var(--fg); }
+/* the lead line's one button: routing groups off everywhere, beside what
+   「接入」 does */
+.ag-nogroups { margin-left: 6px; vertical-align: baseline; }
 .ag-lead.welcome { margin: 0 0 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .ag-lead .ag-lead-h { display: block; font-size: 14px; margin-bottom: 4px; }
 .ag-lead p { margin: 0; line-height: 1.55; color: var(--muted); }

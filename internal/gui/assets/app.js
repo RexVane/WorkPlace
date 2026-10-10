@@ -1203,6 +1203,45 @@ function connectRow(a, row, who, { fields, extras, fieldBtn, sw, kind }) {
   }
 }
 
+// routingGroupsOff: one click takes the routing groups out of every agent's
+// range — an agent is connected on a provider's own model and only goes
+// through a group when the reader turns one on for it, in that agent's
+// 「范围」 sheet. Said in settings.visible, so every agent's lists follow.
+async function routingGroupsOff() {
+  try {
+    state = await api("agents/routing-groups-off", {});
+    renderAgents();
+    const n = state.changed || 0;
+    status(n ? t("Routing groups are off for {n} agents · turn one on in an agent's Scope", { n })
+      : t("No agent has a routing group to switch off"), n ? "ok" : "warn");
+  } catch (e) { status(e.message, "err"); }
+}
+
+// GROUP_PREFIX is how a routing group is spelled in a range, as the gateway
+// spells it in a model id: a range name starting with it is a group
+const GROUP_PREFIX = "group/";
+
+// anyGroupInRange: whether the state says some agent may still be shown a
+// routing group, for the lead line's button
+function anyGroupInRange() {
+  const vis = state.settings?.visible || {};
+  return state.agents.some((a) => {
+    const names = vis[a.id];
+    return !names || names.some((n) => String(n).toLowerCase().startsWith(GROUP_PREFIX));
+  });
+}
+
+// routingGroupsOffBtn: the lead line's one button, drawn while some agent
+// may still be shown a routing group
+function routingGroupsOffBtn() {
+  if (mode === "panel" || !anyGroupInRange()) return null;
+  const b = el("button", "text ag-nogroups", t("Turn routing groups off everywhere"));
+  b.type = "button";
+  b.title = t("Every agent keeps its own provider's models; turn a routing group on in the agent's Scope sheet");
+  b.onclick = () => routingGroupsOff();
+  return b;
+}
+
 // agentsLead: above the window's list, what 「接入」 does, said once in a
 // line; while no agent is connected, as a welcome, with a way to add a
 // provider when magpie has no models to give
@@ -1222,6 +1261,8 @@ function agentsLead(list) {
   if (!first) {
     const [pre, post] = t("Switch an agent on and the models you set up in magpie show up as the {magpie} provider in its own model list; or pick its model right here.").split("{magpie}");
     lead.append(pre, el("b", "", "magpie"), post || "");
+    const off = routingGroupsOffBtn();
+    if (off) lead.append(off);
     return;
   }
   lead.append(el("b", "ag-lead-h", t("Let your agents use the models you set up in magpie")));
@@ -2684,16 +2725,25 @@ async function openAgentModels(a, anchor, ev) {
       for (const s of rows) {
         const key = s.name.toLowerCase();
         const on = picked.has(key);
-        const r = el("button", "am-mr am-sr" + (on ? "" : " off"));
+        // a routing group is a switch: what the reader turns on and off is
+        // a group of models going through magpie, not a tick in a list
+        const r = el("button", "am-mr am-sr" + (s.kind === "group" ? " sw" : "") + (on ? "" : " off"));
         r.type = "button";
-        r.setAttribute("role", "menuitemcheckbox");
+        r.setAttribute("role", "switch");
         r.setAttribute("aria-checked", String(on));
         r.title = s.kind === "group" && s.label && s.label !== s.name ? s.name + " · " + s.label : s.name;
         const name = el("span", "n", s.kind === "group" && s.label ? s.label : s.name);
         if (s.kind === "group" && s.label && s.label !== s.name) name.append(el("span", "am-id", s.name));
-        const ck = el("span", "ck");
-        if (on) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
-        r.append(name, el("span", "am-sc-n", t("{n} models", { n: String(s.entries) })), ck);
+        r.append(name, el("span", "am-sc-n", t("{n} models", { n: String(s.entries) })));
+        if (s.kind === "group") {
+          const sw = el("span", "lib-switch" + (on ? " on" : ""));
+          sw.append(el("i"));
+          r.append(sw);
+        } else {
+          const ck = el("span", "ck");
+          if (on) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
+          r.append(ck);
+        }
         r.onclick = () => {
           if (on && offeredPicked() <= 1) return void status(t("{agent} has to be shown something", { agent: a.name }), "warn");
           on ? picked.delete(key) : picked.add(key);

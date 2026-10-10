@@ -209,10 +209,23 @@ ticking every name the catalog offers saves nothing at all rather than
 pinning them, which is what keeps a model, provider or group added later
 shown. The range is read as the list opens rather than when the sheet does:
 the button says how many names are kept (`Range: 3`, or `Range: all models`)
-and the foot what a name added later does. The sheet is drawn in the list's
-own place inside the pop rather than as a modal over the page, and
+and the foot what a name added later does. A routing group is drawn as a
+**switch** (`role="switch"`, the app's own `.lib-switch` from
+[`library.css`](../../internal/gui/assets/library.css)) rather than a tick:
+what it turns on and off is a way through magpie, while a family's or a
+provider's tick takes away its models. The Agents page's lead line carries
+one button, **Turn routing groups off everywhere** (`POST
+/api/agents/routing-groups-off` in
+[`agent_models.go`](../../internal/gui/agent_models.go)), drawn while some
+agent may still be shown a group: it narrows every agent's range to the
+names that aren't routing groups at once. An agent whose range would be
+left with nothing but no longer hold a group — one shown only groups —
+keeps them, since it would otherwise be shown nothing and the connect that
+followed would refuse it. The sheet is drawn in the list's own place inside
+the pop rather than as a modal over the page, and
 `agentModelJSON.Candidates` is what tells the list which names would show a
-model. `TestAgentScopeAPI` and `agent-scope.test.cjs` cover it.
+model. `TestAgentScopeAPI`, `TestRoutingGroupsOffEverywhere`,
+`agent-scope.test.cjs` and `routing-groups-off.test.cjs` cover it.
 
 ### Shared UI rules
 

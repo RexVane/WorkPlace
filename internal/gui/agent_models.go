@@ -4,10 +4,13 @@ import (
 	"cmp"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/yetone/magpie/internal/agent"
+	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/provider"
+	"github.com/yetone/magpie/internal/settings"
 )
 
 // Which of the catalog an agent's lists show, picked one model at a time
@@ -237,6 +240,65 @@ func scopeOf(a *agent.Agent) (scopeJSON, scopeUsed) {
 }
 
 func agentScopeAPI(mux *http.ServeMux) {
+	// routing-groups-off takes the catalog's routing groups out of every
+	// agent's range at once: an agent connects on a provider's model and
+	// has to be set on a group of its own before one routes for it, so
+	// this is what the page's one button does for the agents already
+	// connected (see provider.SetVisible). An agent with no group in its
+	// range is left as it is, and so is one whose range would be left
+	// empty: an agent shown nothing but groups keeps them, since taking
+	// them away would leave it with no model at all, and the connect that
+	// followed would refuse it (#939)
+	mux.HandleFunc("POST /api/agents/routing-groups-off", func(rw http.ResponseWriter, r *http.Request) {
+		all := provider.ScopeNames()
+		var plain []string
+		groups := map[string]bool{}
+		for _, n := range all {
+			if n.Kind == provider.ScopeGroup {
+				groups[strings.ToLower(n.Name)] = true
+				continue
+			}
+			plain = append(plain, n.Name)
+		}
+		isGroup := func(n string) bool { return groups[strings.ToLower(n)] }
+		s := settings.Load()
+		changed := 0
+		for _, a := range agent.All() {
+			id := a.ListsFor()
+			names, narrowed := provider.VisibleTo(id)
+			if narrowed && !slices.ContainsFunc(names, isGroup) {
+				continue // its groups are out of its range already
+			}
+			if narrowed && !slices.ContainsFunc(names, func(n string) bool { return !isGroup(n) }) {
+				continue // nothing but groups: it would be shown nothing
+			}
+			if s.Visible == nil {
+				s.Visible = map[string][]string{}
+			}
+			if len(plain) == 0 {
+				delete(s.Visible, id)
+			} else {
+				s.Visible[id] = slices.Clone(plain)
+			}
+			changed++
+		}
+		if changed == 0 {
+			writeJSON(rw, struct {
+				stateJSON
+				Changed int `json:"changed"`
+			}{state(), 0})
+			return
+		}
+		if err := settings.Save(s); err != nil {
+			fail(rw, err)
+			return
+		}
+		catalog.Touched() // the agents' own lists follow
+		writeJSON(rw, struct {
+			stateJSON
+			Changed int `json:"changed"`
+		}{state(), changed})
+	})
 	mux.HandleFunc("GET /api/agent-scope/{id}", func(rw http.ResponseWriter, r *http.Request) {
 		a, err := agent.Find(r.PathValue("id"))
 		if err != nil {

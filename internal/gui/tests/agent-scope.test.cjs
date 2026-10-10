@@ -128,11 +128,19 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.match(await sheet.locator(".am-d").innerText(), w.note);
       assert.equal(await sheet.locator(".am-sh .c").innerText(), r.of(4, 4));
       assert.equal(await sheet.locator(".am-sr").count(), 4);
-      assert.equal(await sheet.locator('.am-sr[aria-checked="true"]').count(), 4);
+      assert.equal(await sheet.locator(".am-sr:not(.off)").count(), 4);
       assert.equal(await sheet.locator(".am-sr .am-sc-n").first().innerText(), w.first);
-      // a routing group is listed by its own name, with the id the range holds
+      // a routing group is listed by its own name, with the id the range holds,
+      // and switched rather than ticked: it is a way through magpie
       const route = sheet.locator(".am-sr", { hasText: "Fast" }).first();
       assert.equal(await route.locator(".am-id").innerText(), "group/fast");
+      assert.equal(await route.getAttribute("role"), "switch");
+      assert.equal(await route.getAttribute("aria-checked"), "true");
+      assert.equal(await route.locator(".lib-switch.on").count(), 1);
+      const provider = sheet.locator(".am-sr", { hasText: "other" }).first();
+      assert.equal(await provider.getAttribute("role"), "switch");
+      assert.equal(await provider.locator(".lib-switch").count(), 0, "a provider keeps a tick");
+      assert.equal(await provider.locator(".ck").count(), 1);
       assert.equal(await pop.locator(".am-search").isVisible(), false, "the sheet takes the list's tools");
 
       // unticking the plain provider saves at once
@@ -140,8 +148,8 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, r.at(3));
       assert.deepEqual(fx.saved(), ["fa", "group/fast", "relay"]);
       assert.equal(await sheet.locator(".am-sh .c").innerText(), r.of(3, 4));
-      assert.equal(await sheet.locator('.am-sr[aria-checked="false"]').count(), 1);
-      assert.equal(await sheet.locator('.am-sr[aria-checked="false"] .n').innerText(), "other");
+      assert.equal(await sheet.locator(".am-sr.off").count(), 1);
+      assert.equal(await sheet.locator(".am-sr.off .n").innerText(), "other");
 
       // closing it: the list is the narrowed catalog, the foot saying what
       // the range does to what comes later
@@ -160,7 +168,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await scopeBtn.click();
       await sheet.waitFor();
       assert.equal(await sheet.locator(".am-sh .c").innerText(), r.of(3, 4));
-      assert.equal(await sheet.locator('.am-sr[aria-checked="false"] .n').innerText(), "other");
+      assert.equal(await sheet.locator(".am-sr.off .n").innerText(), "other");
       await sheet.locator(".am-sr", { hasText: "relay" }).first().click();
       await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, r.at(2));
       assert.deepEqual(fx.saved(), ["fa", "group/fast"]);
@@ -170,7 +178,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await scopeBtn.click();
       await sheet.waitFor();
       assert.equal(await sheet.locator(".am-sh .c").innerText(), r.of(2, 4));
-      assert.equal(await sheet.locator('.am-sr[aria-checked="false"]').count(), 2, "the two names the range left out are offered still");
+      assert.equal(await sheet.locator(".am-sr.off").count(), 2, "the two names the range left out are offered still");
       assert.deepEqual(errors, []);
     });
   }

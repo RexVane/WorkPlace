@@ -219,3 +219,17 @@
   - 改法：去掉 `!kind`，改为「凡是有模型目录的 Agent 都画这一行」（`mode !== "panel" && a.models`）；真正不能接入的（Cursor、Copilot CLI）本来就没有 `a.models`，不受影响。
   - 实测：开发实例（3425/3437）上 15 个「未接入」的 Agent 行现在都显示「全部 93 个模型 ›」；点开进「范围」面板实测到 `范围：全部模型` → `41 / 41`，供应商 9 个 + 路由组 32 个，全部带勾。
 - 下一步：用户在开发实例里实际点一遍「范围」；若嫌逐个名字太细，可再加「只看路由组 / 只看供应商」的快捷段；`i18n.js` 要不要补一条 `.gitattributes`（`text eol=lf`）以免以后再出整文件 diff，等用户定。用户另报「窗口最顶上边框变白」，已抓取真实窗口截图（title bar 与页面同为 `#151515`，未见白条），待其指认是 DWM 边框、标题栏还是页面内的哪一处。
+
+## 2026-10-11 02:05 +08:00 | deepseek-flash | 路由组改成开关、默认不启用；一键对所有 Agent 关掉路由组
+- 改了什么（用户要求：「接入网关，默认都不启用其他路由组，都是默认使用原本 Agent 的供应商，Agent 可以选择启动可用的路由组」+「用启动的丝滑按钮，不想打勾」）：
+  - **路由组改成开关**：`app.js` 的范围面板里，路由组那一行由勾选框改为开关（复用 `library.css` 的 `.lib-switch`，所以动画和全站其它开关一致）；`role="switch"` + `aria-checked`，关闭时行名变灰。家族与供应商仍是勾选——它们关掉的是「模型本身」，路由组关掉的是「一条经 magpie 走的通道」，两者语义不同（已在代码注释与子系统文档写明）。
+  - **接入不再挑路由组**：`applied.go` 的 `connect()` 本来就只在「除了路由组没有别的模型」时才回退到组（`pick == "" && group != ""`，即 #939），所以本轮没有改这段逻辑，而是把它固定成契约并补测试：新增 `TestConnectPrefersAProviderOverARoutingGroup`（有供应商模型时必定挑模型；把该供应商的模型全部隐藏后，唯一剩下的组才被选中），既有的 `TestConnectOnARoutingGroupAlone` 继续通过。**注意**：如果某 Agent 的模型列表里只有路由组（例如它的模型被逐条隐藏过），接入仍会落在组上——这是有意的兜底，否则接入会报「magpie 没有可用模型」。
+  - **一键关掉所有 Agent 的路由组**：新增 `POST /api/agents/routing-groups-off`（`internal/gui/agent_models.go`）。它取 `provider.ScopeNames()` 里非路由组的名字，把它们写成每个 Agent 的 `settings.Visible`（即范围）——于是那些 Agent 的列表里不再有 `group/…`，而每个供应商自己的模型照旧。**范围里只剩路由组的 Agent 跳过不动**（否则它会被显示为空，下次接入就会报错）；范围里已经没有组的也跳过。Agents 页顶部说明行随之多出一个按钮「一键关掉所有 Agent 的路由组」，只在「还有 Agent 可能被显示路由组」时出现，点完按 claude 的说法给一条状态提示。
+  - i18n：4 条新文案的 zh / zh-TW / ja / de。
+  - 顺手清掉一处死代码：`app.js` 里范围那一行原先加过的 `who.classList.add("with-models")` 已无必要（真正需要它的是 `connectRow`，仍在），去掉。
+- 验证：
+  - `go test -tags nogui ./internal/provider`（211s）、`./internal/settings` 全过；`./internal/gui` 全过（除 4 个既有环境失败：`TestGatewayHeldByAContainer`、`TestGatewayFixQuitsOnlyAMagpie`、`TestPurposeAssetMatchesUsage`、`TestUpdateThatWontStart`）。
+  - 新增 Go 测试：`TestConnectPrefersAProviderOverARoutingGroup`、`TestRoutingGroupsOffEverywhere`；浏览器新增 `internal/gui/tests/routing-groups-off.test.cjs`（Chromium + WebKit × en/zh，4 跑全过），`agent-scope.test.cjs` 更新为断言开关（`role="switch"`、`.lib-switch.on`、供应商仍有 `.ck`），4 跑全过；`agent-models*`、`i18n-keys`、`gui-ja`、`gui-de` 全过。
+  - 真实实例实测（重启到含新接口的构建后，pid 变更；网关 3425 / 预览 3437）：`POST /api/agents/routing-groups-off` → `changed=48`，`settings.visible` 里每个 Agent 只剩 9 个供应商；Codex 的模型列表由 93 个降到 **78 个、其中路由组 0 个**，而范围面板仍列出 **32 个路由组**（可随时打开某一个）。
+- 影响文件：`internal/gui/agent_models.go`、`internal/gui/assets/app.js`、`internal/gui/assets/app.css`、`internal/gui/assets/i18n.js`、`internal/agent/connect_group_preferred_test.go`（新）、`internal/gui/routing_groups_off_test.go`（新）、`internal/gui/tests/routing-groups-off.test.cjs`（新）、`internal/gui/tests/agent-scope.test.cjs`、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
+- 下一步：用户在窗口里看一眼开关与那个一键按钮是否合意；「系列」段仍是空的（没有任何供应商/路由组打过 `family=` 标签），要不要顺手给订阅类供应商打标签；`.gitattributes` 那件事仍未定。
