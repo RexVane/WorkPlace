@@ -2759,7 +2759,10 @@ async function openAgentModels(a, anchor, ev) {
     };
     const of = (kind) => scopeAll().filter((s) => s.kind === kind)
       .sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
-    for (const [kind, title] of [["family", t("Families")], ["provider", t("Providers")], ["group", t("Routing groups")]]) {
+    // routing groups first, as the list itself has them: they are what the
+    // sheet is opened for, and a catalog with many of them would put the
+    // switches below every provider
+    for (const [kind, title] of [["group", t("Routing groups")], ["provider", t("Providers")], ["family", t("Families")]]) {
       const rows = of(kind);
       if (rows.length) sheet.append(section(title, rows));
     }
@@ -17928,7 +17931,9 @@ function renderSettings() {
   };
   renderUpdate(row(t("Version"), "", s.version));
   // what changed in this version, and in one waiting; a build from source
-  // has no notes
+  // keeps none of its own — /api/whatsnew has no releases to show it, and
+  // the row would open an empty dialog — so it is the version row's line
+  // that says what upstream has
   if (/^v?\d+\.\d+\.\d+$/.test(s.version || "")) {
     const notes = el("button", "text", t("Open"));
     notes.onclick = async () => openWhatsNew(await api(updatePath("update")).catch(() => null), notes);
@@ -19652,8 +19657,13 @@ async function renderUpdate(r, u) {
       sub.textContent = prefs && prefs.noAutoUpdate ? t("Automatic updates are off") : "";
       btn(t("Check"), check);
       break;
-    default: // built from source
-      sub.textContent = "";
+    default: // built from source: it doesn't update itself, and the newer
+      // version upstream is still worth saying (the notes are opened above)
+      sub.textContent = u.latest ? t("Built from source · {v} is out", { v: u.latest }) : "";
+      if (u.latest) {
+        sub.title = t("A build from source keeps its own changes: update this checkout and build it again to get {v}", { v: u.latest });
+        btn(t("Check"), check);
+      }
   }
 }
 

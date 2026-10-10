@@ -77,13 +77,13 @@ const W = {
     title: "Scope", families: "Families", providers: "Providers", routes: "Routing groups",
     note: /^Tick the providers, families and routing groups Codex is shown/,
     foot: "New models are shown", scopedFoot: "New models are shown, except where the range keeps them out",
-    first: "3 models",
+    first: "3 models", single: "1 models",
   },
   zh: {
     title: "范围", families: "系列", providers: "供应商", routes: "路由组",
     note: /^勾选 Codex 能显示的供应商、系列和路由组/,
     foot: "新模型会显示", scopedFoot: "新模型会显示，除非范围把它挡在外面",
-    first: "3 个模型",
+    first: "3 个模型", single: "1 个模型",
   },
 };
 
@@ -124,12 +124,19 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await scopeBtn.click();
       const sheet = pop.locator(".am-sheet");
       await sheet.waitFor();
-      assert.equal(await pop.locator(".am-g .gn").allInnerTexts().then((s) => s.join(" ")), [w.families, w.providers, w.routes].join(" "));
+      assert.equal(await pop.locator(".am-g .gn").allInnerTexts().then((s) => s.join(" ")), [w.routes, w.providers, w.families].join(" "));
       assert.match(await sheet.locator(".am-d").innerText(), w.note);
       assert.equal(await sheet.locator(".am-sh .c").innerText(), r.of(4, 4));
       assert.equal(await sheet.locator(".am-sr").count(), 4);
       assert.equal(await sheet.locator(".am-sr:not(.off)").count(), 4);
-      assert.equal(await sheet.locator(".am-sr .am-sc-n").first().innerText(), w.first);
+      // routing groups come first, as the list itself has them: they are
+      // what the sheet is opened for
+      assert.equal(await sheet.locator(".am-sr").first().locator(".am-id").innerText(), "group/fast");
+      assert.equal(await sheet.locator(".am-sr").first().locator(".am-sc-n").innerText(), w.single);
+      // a family's own count is the entries it names (its row is the one
+      // whose name is exactly "fa", not the "Fast" group's)
+      const family = sheet.locator(".am-sr").filter({ has: page.locator(".n", { hasText: /^fa$/ }) }).first();
+      assert.equal(await family.locator(".am-sc-n").innerText(), w.first);
       // a routing group is listed by its own name, with the id the range holds,
       // and switched rather than ticked: it is a way through magpie
       const route = sheet.locator(".am-sr", { hasText: "Fast" }).first();
