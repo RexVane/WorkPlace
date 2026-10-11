@@ -9,7 +9,8 @@
 /magpie-dev.exe
 /magpie-dev-backend.exe
 /magpie-dev.new.exe
-/backups/
+/backups/*
+!/backups/INDEX.md
 __pycache__/
 /.agents/
 /.claude/

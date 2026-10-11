@@ -711,8 +711,25 @@ func (p Provider) Serves(k KeyAccount, model string) bool {
 }
 
 // Exposed lists the models magpie offers to agents for this provider: the
-// user's picks; else the preset's; else everything, when that is few.
+// user's picks; else the preset's; else everything, when that is few. A
+// model its maker has retired is left out (Retired): it is not offered to
+// an agent or written into its files, though a request naming it is still
+// served (Available keeps it).
 func (p Provider) Exposed() []catalog.Model {
+	return slices.DeleteFunc(p.exposed(), func(m catalog.Model) bool { return p.Retired(m.ID) })
+}
+
+// Retired reports whether the model's own maker has retired it, as
+// models.dev says: its maker's word, not a reseller's — a relay that has
+// marked its copy of a model deprecated doesn't retire the model itself,
+// and one every maker has retired goes even where a relay still lists it
+// (catalog.DeprecatedBy).
+func (p Provider) Retired(model string) bool {
+	return catalog.DeprecatedBy(makerCatalogs(), model)
+}
+
+// exposed is Exposed before retired models are left out.
+func (p Provider) exposed() []catalog.Model {
 	avail := p.Available()
 	byID := make(map[string]catalog.Model, len(avail))
 	for _, m := range avail {

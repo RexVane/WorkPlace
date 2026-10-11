@@ -355,6 +355,17 @@ type Settings struct {
 	// or a group's) taken out of an agent's lists one by one, by agent id,
 	// after Visible: a model not named here, a new one among them, is shown.
 	HiddenModels map[string][]string `json:"hiddenModels,omitempty"`
+	// GroupsOn are the routing groups each agent may go through, by agent
+	// id and then the group ids ("group/<id>", as the catalog spells
+	// them). Routing groups are off for an agent it doesn't name — an
+	// agent connects on a provider's own model, as 「默认使用原本 Agent 的
+	// 供应商」 asks — and the reader turns one on for it, one at a time,
+	// from that agent's model list (the switches beside the groups). It is
+	// a switch and not a whitelist of models: a group added later is off
+	// for the agent too until it is turned on, and every provider's own
+	// models are untouched either way. An agent with no entry has no
+	// groups at all.
+	GroupsOn map[string][]string `json:"groupsOn,omitempty"`
 	// AgentEfforts are the reasoning efforts the gateway asks for on an
 	// agent's requests, by agent id, for an agent whose own config can't
 	// carry one (Cursor Private Inference, #1003): one of the levels in

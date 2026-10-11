@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	"github.com/yetone/magpie/internal/agent"
-	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/provider"
-	"github.com/yetone/magpie/internal/settings"
 )
 
 // Which of the catalog an agent's lists show, picked one model at a time
@@ -188,15 +186,15 @@ func agentModelList(a *agent.Agent) []agentModelJSON {
 }
 
 // scopeJSON is the range sheet of one agent's model list (the "Scope"
-// button): which families, provider ids and routing group ids its lists
-// are narrowed to (settings' Visible, `magpie visible`), and every name
-// the catalog offers to narrow them by.
+// button): which routing groups that agent may go through. Routing groups
+// are off until one is switched on for the agent, so an agent connects on
+// a provider's own model and goes through a group only when the reader
+// says so.
 //
-// Names is the agent's range as saved, empty when it has none — every name
-// is then in it, which is what the sheet starts from: it keeps the whole
-// set and the user unticks what the agent shouldn't be shown. Saving that
-// whole set back drops the range rather than pinning every name, so a
-// model or group added later is still shown, as the foot says.
+// Names are the groups switched on for it (settings.GroupsOn), All every
+// group the catalog offers — the switch's own list. Which of a provider's
+// models the agent is shown is the list's matter, not this sheet's: those
+// are ticked one by one there (settings.HiddenModels).
 type scopeJSON struct {
 	Agent string               `json:"agent"`
 	Names []string             `json:"names"`
@@ -206,22 +204,30 @@ type scopeJSON struct {
 // scopeUsed is how much of an agent's catalog its range keeps, for the
 // line the sheet says under the title.
 type scopeUsed struct {
-	// Shown is the models the agent is shown: what its range gives it,
-	// less the ones taken out of its lists one by one (HiddenModels).
+	// Shown is the models the agent is shown.
 	Shown int `json:"shown"`
-	// Catalog is every model magpie has, which the range narrows.
+	// Catalog is every model magpie has.
 	Catalog int `json:"catalog"`
-	// Names is how many names the range holds, 0 when it has none and the
-	// agent is shown the whole catalog.
+	// Names is how many routing groups are switched on for it.
 	Names int `json:"names"`
 }
 
 func agentScope(a *agent.Agent) scopeJSON {
-	names, _ := provider.VisibleTo(a.ListsFor())
-	if names == nil {
-		names = []string{}
+	on := provider.GroupsOn(a.ListsFor())
+	names := make([]string, 0, len(on))
+	for id := range on {
+		names = append(names, id)
 	}
-	all := provider.ScopeNames()
+	slices.Sort(names)
+	// the sheet switches catalog entries, so only the "group/<id>" spelling
+	// of a group is offered: ScopeNames also gives a group the tag it goes
+	// by, which is a visibility name and not something to switch
+	var all []provider.ScopeName
+	for _, s := range provider.ScopeNames() {
+		if s.Kind == provider.ScopeGroup && strings.HasPrefix(s.Name, provider.GroupPrefix) {
+			all = append(all, s)
+		}
+	}
 	if all == nil {
 		all = []provider.ScopeName{}
 	}
@@ -231,69 +237,21 @@ func agentScope(a *agent.Agent) scopeJSON {
 // scopeOf is an agent's range sheet and how much of the catalog it keeps.
 func scopeOf(a *agent.Agent) (scopeJSON, scopeUsed) {
 	shown, _ := provider.CatalogFor(a.ListsFor())
-	names, narrowed := provider.VisibleTo(a.ListsFor())
-	used := scopeUsed{Shown: len(shown), Catalog: len(provider.Catalog())}
-	if narrowed {
-		used.Names = len(names)
-	}
+	used := scopeUsed{Shown: len(shown), Catalog: len(provider.Catalog()),
+		Names: len(provider.GroupsOn(a.ListsFor()))}
 	return agentScope(a), used
 }
 
 func agentScopeAPI(mux *http.ServeMux) {
-	// routing-groups-off takes the catalog's routing groups out of every
-	// agent's range at once: an agent connects on a provider's model and
-	// has to be set on a group of its own before one routes for it, so
-	// this is what the page's one button does for the agents already
-	// connected (see provider.SetVisible). An agent with no group in its
-	// range is left as it is, and so is one whose range would be left
-	// empty: an agent shown nothing but groups keeps them, since taking
-	// them away would leave it with no model at all, and the connect that
-	// followed would refuse it (#939)
+	// routing-groups-off turns every routing group off for every agent at
+	// once: each one goes on its own provider's models and on no group
+	// until one is switched on for it (see provider.SetGroupsOff)
 	mux.HandleFunc("POST /api/agents/routing-groups-off", func(rw http.ResponseWriter, r *http.Request) {
-		all := provider.ScopeNames()
-		var plain []string
-		groups := map[string]bool{}
-		for _, n := range all {
-			if n.Kind == provider.ScopeGroup {
-				groups[strings.ToLower(n.Name)] = true
-				continue
-			}
-			plain = append(plain, n.Name)
-		}
-		isGroup := func(n string) bool { return groups[strings.ToLower(n)] }
-		s := settings.Load()
-		changed := 0
-		for _, a := range agent.All() {
-			id := a.ListsFor()
-			names, narrowed := provider.VisibleTo(id)
-			if narrowed && !slices.ContainsFunc(names, isGroup) {
-				continue // its groups are out of its range already
-			}
-			if narrowed && !slices.ContainsFunc(names, func(n string) bool { return !isGroup(n) }) {
-				continue // nothing but groups: it would be shown nothing
-			}
-			if s.Visible == nil {
-				s.Visible = map[string][]string{}
-			}
-			if len(plain) == 0 {
-				delete(s.Visible, id)
-			} else {
-				s.Visible[id] = slices.Clone(plain)
-			}
-			changed++
-		}
-		if changed == 0 {
-			writeJSON(rw, struct {
-				stateJSON
-				Changed int `json:"changed"`
-			}{state(), 0})
-			return
-		}
-		if err := settings.Save(s); err != nil {
+		changed, err := provider.SetGroupsOff()
+		if err != nil {
 			fail(rw, err)
 			return
 		}
-		catalog.Touched() // the agents' own lists follow
 		writeJSON(rw, struct {
 			stateJSON
 			Changed int `json:"changed"`
@@ -308,12 +266,12 @@ func agentScopeAPI(mux *http.ServeMux) {
 		scope, used := scopeOf(a)
 		writeJSON(rw, map[string]any{"scope": scope, "used": used})
 	})
-	// names is the agent's whole range: what the catalog is narrowed to,
-	// and the entries the page's list is then drawn from. An empty one
-	// puts every model back, as `magpie visible <agent> all` does
+	// on switches one routing group on or off for this agent alone. That
+	// agent's own list is drawn from what comes back
 	mux.HandleFunc("POST /api/agent-scope/{id}", func(rw http.ResponseWriter, r *http.Request) {
 		var in struct {
-			Names []string
+			ID string
+			On bool
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			fail(rw, err)
@@ -324,7 +282,7 @@ func agentScopeAPI(mux *http.ServeMux) {
 			fail(rw, err)
 			return
 		}
-		if err := provider.SetVisible(a.ListsFor(), in.Names); err != nil {
+		if err := provider.SetGroupOn(a.ListsFor(), in.ID, in.On); err != nil {
 			fail(rw, err)
 			return
 		}

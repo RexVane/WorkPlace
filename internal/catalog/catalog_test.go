@@ -198,6 +198,55 @@ func TestEffortsOfOneVoteAProvider(t *testing.T) {
 	}
 }
 
+// DeprecatedBy is the retired word of a model's own maker: a reseller's
+// word on its own copy of a model doesn't retire the model (NVIDIA's
+// deepseek-v4-pro, where DeepSeek's is live), and one every maker listing
+// it has retired is retired even where a reseller lists it as if live.
+func TestDeprecatedBy(t *testing.T) {
+	writeCatalog(t, `{
+	  "deepseek": {"models": {
+	    "deepseek-v4-flash": {"id":"deepseek-v4-flash","status":"deprecated"},
+	    "deepseek-v4-pro": {"id":"deepseek-v4-pro"}}},
+	  "nvidia": {"models": {
+	    "deepseek/deepseek-v4-pro": {"id":"deepseek/deepseek-v4-pro","status":"deprecated"},
+	    "deepseek/deepseek-v4-flash": {"id":"deepseek/deepseek-v4-flash"}}},
+	  "zai": {"models": {"glm-5": {"id":"glm-5","status":"deprecated"},
+	                     "glm-5.3": {"id":"glm-5.3","status":"beta"}}},
+	  "relay": {"models": {"glm-5": {"id":"glm-5"}}}
+	}`)
+	makers := []string{"deepseek", "zai", "anthropic"}
+	for _, c := range []struct {
+		id   string
+		want bool
+	}{
+		// its maker retired it, a reseller's live listing and all
+		{"deepseek-v4-flash", true},
+		{"deepseek/deepseek-v4-flash", true},
+		{"deepseek-v4-flash:free", true},
+		// a reseller retired its copy; its maker still serves it
+		{"deepseek-v4-pro", false},
+		{"deepseek/deepseek-v4-pro", false},
+		// a reseller lists it plain; its maker retired it
+		{"glm-5", true},
+		// beta is not retired
+		{"glm-5.3", false},
+		// nobody that makes it lists it
+		{"unknown-model", false},
+		// the makers named don't make this one
+		{"claude-sonnet-5", false},
+	} {
+		if got := DeprecatedBy(makers, c.id); got != c.want {
+			t.Errorf("DeprecatedBy(%q) = %v, want %v", c.id, got, c.want)
+		}
+	}
+	// a model listed with a thinking budget and no levels says nothing of
+	// them; retired is the same walk, so the makers named must still be
+	// asked of a bare id
+	if DeprecatedBy(nil, "deepseek-v4-flash") {
+		t.Error("no makers named: nothing is retired")
+	}
+}
+
 // ListedBy is what the first of the providers named listing a model says of
 // its levels: a thinking switch alone or nothing is none, a budget without
 // levels says nothing, and a model none of them lists isn't theirs to say.

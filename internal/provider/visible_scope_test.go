@@ -142,32 +142,51 @@ func TestSetVisibleNarrows(t *testing.T) {
 	if shown, _ := CatalogFor("codex"); slices.Contains(ids(shown), "other/m1") {
 		t.Fatalf("one entry: %v", ids(shown))
 	}
-	// a group id keeps the group
-	if err := SetVisible("codex", []string{GroupPrefix + AutoGroupID("m1")}); err != nil {
+	// a group id keeps the group, once the agent may go through it (a group
+	// is off for an agent until it is switched on for it — GroupsOn — which
+	// is a separate switch from the range)
+	gid := GroupPrefix + AutoGroupID("m1")
+	if err := SetGroupOn("codex", gid, true); err != nil {
 		t.Fatal(err)
 	}
-	if names, _ := VisibleTo("codex"); !slices.Equal(names, []string{GroupPrefix + AutoGroupID("m1")}) {
+	if err := SetVisible("codex", []string{gid}); err != nil {
+		t.Fatal(err)
+	}
+	if names, _ := VisibleTo("codex"); !slices.Equal(names, []string{gid}) {
 		t.Fatalf("the id as given is kept: %v", names)
 	}
-	if shown, _ := CatalogFor("codex"); !slices.Equal(ids(shown), []string{GroupPrefix + AutoGroupID("m1")}) {
+	if shown, _ := CatalogFor("codex"); !slices.Equal(ids(shown), []string{gid}) {
 		t.Fatalf("group prefix: %v", ids(shown))
 	}
-	// none puts every model back, and no range is left in settings
+	// and off again: the range names it, the switch does not
+	if err := SetGroupOn("codex", gid, false); err != nil {
+		t.Fatal(err)
+	}
+	if shown, _ := CatalogFor("codex"); len(shown) != 0 {
+		t.Fatalf("a group switched off is still in the list: %v", ids(shown))
+	}
+	// none puts every model back — the routing groups excepted, whose own
+	// switch is off for this agent — and no range is left in settings
 	if err := SetVisible("codex", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := VisibleTo("codex"); ok {
 		t.Fatal("an empty range kept")
 	}
-	if shown, hidden := CatalogFor("codex"); len(shown) != len(all) || len(hidden) != 0 {
-		t.Fatalf("put back: %v kept %v", ids(shown), ids(hidden))
+	shown, hidden = CatalogFor("codex")
+	if slices.ContainsFunc(shown, func(e Entry) bool { return e.Group != "" }) {
+		t.Fatalf("a group came back with the range: %v", ids(shown))
 	}
-	if told != 4 {
-		t.Fatalf("agents told %d times", told)
+	if !slices.Equal(slices.Sorted(slices.Values(ids(hidden))), []string{GroupPrefix + AutoGroupID("m1")}) {
+		t.Fatalf("put back: shown %v kept %v", ids(shown), ids(hidden))
+	}
+	if !slices.Equal(slices.Sorted(slices.Values(ids(shown))), []string{"other/m1", "relay/m1", "relay/m2"}) {
+		t.Fatalf("put back: %v", ids(shown))
 	}
 	// and setting none again writes nothing
-	if err := SetVisible("codex", nil); err != nil || told != 4 {
-		t.Fatalf("%v told %d", err, told)
+	toldBefore := told
+	if err := SetVisible("codex", nil); err != nil || told != toldBefore {
+		t.Fatalf("%v told %d times, want %d", err, told, toldBefore)
 	}
 	// a range with no agent is refused
 	if err := SetVisible("", []string{"fast"}); err == nil {

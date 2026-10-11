@@ -19,6 +19,7 @@ func TestPlainOwnNamesGroups(t *testing.T) {
 	if err := SaveGroup(Group{ID: "fast", Name: "Fast", Members: []string{"a/sol", "b/sol"}}); err != nil {
 		t.Fatal(err)
 	}
+	routingGroupsOn(t, "opencode") // a routing group is off until it is switched on
 	labels := func() []string {
 		shown, _ := CatalogFor("opencode")
 		out := Labels(shown)

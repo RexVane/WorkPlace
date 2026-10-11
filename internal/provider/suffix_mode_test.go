@@ -16,6 +16,7 @@ import (
 // the way already set doesn't, and a way of no such name is refused.
 func TestSuffixMode(t *testing.T) {
 	prefsHome(t)
+	routingGroupsOn(t, "codex") // a routing group is off until it is switched on
 	touched := 0
 	catalog.Changed = func() { touched++ }
 	t.Cleanup(func() { catalog.Changed = nil })

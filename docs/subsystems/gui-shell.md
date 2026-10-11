@@ -193,39 +193,32 @@ ties. Family changes keep a matching style where possible, otherwise the
 nearest regular face; named variable instances are offered without arbitrary
 axis controls.
 
-### An agent's range sheet
+### An agent's routing sheet
 
-The model list under an agent's name on the Agents page carries a **Scope**
-button (`GET /api/agent-scope/{id}`), which opens a sheet of every family,
-provider id and routing group id magpie has: the agent's range
-(`settings.Visible`), the same field `magpie visible` writes and the
-gateway and the agents' own files read (see [Agent wiring](agent-wiring.md)).
-Every name starts ticked for an agent with no range; unticking one saves at
-once and the list is drawn again from the narrowed catalog the answer
-carries (`POST /api/agent-scope/{id}`), models the range keeps out dimmed
-and never reaching the agent's picker or its files. A name whose every
-model the range leaves out stays in the sheet, so it can be ticked back;
-ticking every name the catalog offers saves nothing at all rather than
-pinning them, which is what keeps a model, provider or group added later
-shown. The range is read as the list opens rather than when the sheet does:
-the button says how many names are kept (`Range: 3`, or `Range: all models`)
-and the foot what a name added later does. A routing group is drawn as a
-**switch** (`role="switch"`, the app's own `.lib-switch` from
-[`library.css`](../../internal/gui/assets/library.css)) rather than a tick:
-what it turns on and off is a way through magpie, while a family's or a
-provider's tick takes away its models. The Agents page's lead line carries
-one button, **Turn routing groups off everywhere** (`POST
+The model list under an agent's name on the Agents page carries a **Routing**
+button (`GET /api/agent-scope/{id}`), which opens a sheet of every routing
+group the catalog has. It answers one question: may this agent go through
+that way. A group is drawn as a **switch** (`role="switch"`, the app's own
+`.lib-switch` from
+[`library.css`](../../internal/gui/assets/library.css)), and switching one
+on or off writes that agent's own entry in `settings.GroupsOn` (`POST
+/api/agent-scope/{id}` with the group's id and the wanted state). The models
+the answer carries are drawn again at once, so a group's models join the
+list under the sheet as its switch goes on.
+
+Routing groups are **off until one is switched on for that agent**: an agent
+connects on a provider's own model, and a group added later is off for it
+too until it is turned on. Every provider's own models are untouched either
+way — which of them the agent is shown is the list's own matter, ticked one
+by one there (`settings.HiddenModels`). The button says how many groups are
+on (`Routing: 2`) or that none is (`Routing: off`). The Agents page's lead
+line carries one button, **Turn routing groups off everywhere** (`POST
 /api/agents/routing-groups-off` in
 [`agent_models.go`](../../internal/gui/agent_models.go)), drawn while some
-agent may still be shown a group: it narrows every agent's range to the
-names that aren't routing groups at once. An agent whose range would be
-left with nothing but no longer hold a group — one shown only groups —
-keeps them, since it would otherwise be shown nothing and the connect that
-followed would refuse it. The sheet is drawn in the list's own place inside
-the pop rather than as a modal over the page, and
-`agentModelJSON.Candidates` is what tells the list which names would show a
-model. `TestAgentScopeAPI`, `TestRoutingGroupsOffEverywhere`,
-`agent-scope.test.cjs` and `routing-groups-off.test.cjs` cover it.
+agent has a group switched on: it clears them all. The sheet is drawn in the
+list's own place inside the pop rather than as a modal over the page.
+`TestAgentScopeAPI`, `TestRoutingGroupsOffEverywhere`,
+`agent-routing-sheet.test.cjs` and `routing-groups-off.test.cjs` cover it.
 
 ### Shared UI rules
 
@@ -252,7 +245,7 @@ waits for `show` to accept navigation before creating its draft.
 ```sh
 go test -tags nogui ./internal/gui
 go test -tags nogui ./internal/gui -run '^TestAgentScopeAPI$'
-node --test internal/gui/tests/agent-scope.test.cjs
+node --test internal/gui/tests/agent-routing-sheet.test.cjs internal/gui/tests/routing-groups-off.test.cjs
 go test -v ./internal/fonts         # native discovery on each desktop OS
 make test-ui                      # every internal/gui/tests/*.test.cjs, Chromium and WebKit
 BROWSER=webkit node --test internal/gui/tests/click-scroll.test.cjs

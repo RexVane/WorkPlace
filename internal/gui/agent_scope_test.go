@@ -14,10 +14,10 @@ import (
 	"github.com/yetone/magpie/internal/settings"
 )
 
-// The range sheet of an agent's model list: every name its lists may be
-// narrowed to, the ones they are narrowed to, and how much of the catalog
-// that keeps. Saving a narrower range takes the models it leaves out of the
-// agent's list and its count; nothing at all puts the whole catalog back.
+// An agent's routing sheet: every routing group the catalog has, and which
+// of them that agent may go through. Routing groups are off until one is
+// switched on for the agent, so the models of a group join its list only
+// then — and a switch is that agent's alone.
 func TestAgentScopeAPI(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -26,16 +26,15 @@ func TestAgentScopeAPI(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
 	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
 	os.MkdirAll(filepath.Join(home, ".codex"), 0o755)
-	// on a model of the provider the range is about to leave out, so that
-	// provider's models are the ones missing from the list afterwards
-	os.WriteFile(filepath.Join(home, ".codex", "config.toml"), []byte("model = \"magpie/other/m1\"\n"), 0o600)
-	for _, p := range []provider.Provider{
-		{ID: "relay", Name: "Relay", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"m1", "m2"}},
-		{ID: "other", Name: "Other", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"m1"}},
-	} {
-		if err := provider.Save(p); err != nil {
-			t.Fatal(err)
-		}
+	os.WriteFile(filepath.Join(home, ".codex", "config.toml"), []byte("model = \"magpie/relay/m1\"\n"), 0o600)
+	if err := provider.Save(provider.Provider{ID: "relay", Name: "Relay", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"m1", "m2"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SaveGroup(provider.Group{ID: "fast", Name: "Fast", Members: []string{"relay/m1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SaveGroup(provider.Group{ID: "slow", Name: "Slow", Members: []string{"relay/m2"}}); err != nil {
+		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
 	agentScopeAPI(mux)
@@ -63,74 +62,75 @@ func TestAgentScopeAPI(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &out)
 		return out
 	}
-	names := func(ss []provider.ScopeName) []string {
+	groups := func(ss []provider.ScopeName) []string {
 		var out []string
 		for _, s := range ss {
-			out = append(out, s.Name)
+			if s.Kind == provider.ScopeGroup {
+				out = append(out, s.Name)
+			}
 		}
 		return out
 	}
 
-	// an agent no range names is shown the whole catalog
+	// nothing switched on: both groups are offered (each with the tag it
+	// goes by too), the agent's list holds its provider's models alone. The
+	// GET carries the sheet; the list comes with a switch's answer
 	got := call("GET", "codex", "")
 	if got.Scope.Agent != "codex" || len(got.Scope.Names) != 0 {
-		t.Fatalf("an agent with no range: %+v", got.Scope)
+		t.Fatalf("an agent with no groups: %+v", got.Scope)
 	}
-	if got.Used.Names != 0 || got.Used.Catalog == 0 || got.Used.Shown != got.Used.Catalog {
-		t.Fatalf("used %+v", got.Used)
+	offered := groups(got.Scope.All)
+	if !slices.Contains(offered, "group/fast") || !slices.Contains(offered, "group/slow") {
+		t.Fatalf("the groups offered: %v", offered)
 	}
-	if !slices.Contains(names(got.Scope.All), "relay") || !slices.Contains(names(got.Scope.All), "other") {
-		t.Fatalf("the names offered: %v", names(got.Scope.All))
+	if got.Used.Names != 0 || got.Used.Shown != 2 {
+		t.Fatalf("before any switch: %+v", got.Used)
 	}
-
-	// narrowed to one provider: the other's models go from the list, and
-	// from what the count line under the agent's name says
-	got = call("POST", "codex", `{"names":["relay"]}`)
-	if !slices.Equal(settings.Load().Visible["codex"], []string{"relay"}) {
-		t.Fatalf("saved %v", settings.Load().Visible)
-	}
-	if !slices.Equal(got.Scope.Names, []string{"relay"}) || got.Used.Names != 1 {
-		t.Fatalf("the range read back: %+v %+v", got.Scope, got.Used)
-	}
-	if ids := modelIDs(got.Models); slices.Contains(ids, "other/m1") || len(ids) != 2 {
-		t.Fatalf("the list after narrowing: %v", ids)
-	}
-	if got.Count == nil || got.Count.Shown != len(got.Models) {
-		t.Fatalf("the count line: %+v %v", got.Count, modelIDs(got.Models))
-	}
-	if got.Used.Shown != got.Count.Shown || got.Used.Catalog <= got.Used.Shown {
-		t.Fatalf("used %+v, count %+v", got.Used, got.Count)
-	}
-	// every model the list still has is named by the provider the range
-	// keeps, which is what the sheet ticks
-	for _, m := range got.Models {
-		if !slices.Contains(m.Candidates, "relay") {
-			t.Fatalf("a model of the kept provider: %+v", m)
-		}
+	if shown, _ := provider.CatalogFor("codex"); slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.Group != "" }) {
+		t.Fatalf("a group is in the list with nothing switched on: %v", shown)
 	}
 
-	// a model taken out of the agent's lists one by one is still the
-	// agent's own, under its range
-	if err := provider.SetHiddenModels("codex", []string{"relay/m2"}); err != nil {
+	// one switched on: it and its models join the agent's list
+	got = call("POST", "codex", `{"id":"group/fast","on":true}`)
+	if !slices.Equal(got.Scope.Names, []string{"group/fast"}) || got.Used.Names != 1 {
+		t.Fatalf("the sheet after a switch: %+v", got.Scope)
+	}
+	if ids := modelIDs(got.Models); !slices.Contains(ids, "group/fast") {
+		t.Fatalf("the group did not join the list: %v", ids)
+	}
+	if !slices.Equal(settings.Load().GroupsOn["codex"], []string{"group/fast"}) {
+		t.Fatalf("saved %v", settings.Load().GroupsOn)
+	}
+	// the switch is this agent's alone
+	if err := provider.SetGroupOn("claude", "group/slow", true); err != nil {
 		t.Fatal(err)
 	}
-	if got = call("GET", "codex", ""); got.Used.Shown != got.Used.Catalog-3 {
-		t.Fatalf("a hidden model under a range: %+v", got.Used)
+	if got := call("GET", "codex", ""); !slices.Equal(got.Scope.Names, []string{"group/fast"}) {
+		t.Fatalf("another agent's switch changed this one: %v", got.Scope.Names)
 	}
-	if err := provider.SetHiddenModels("codex", nil); err != nil {
-		t.Fatal(err)
+	if shown, _ := provider.CatalogFor("codex"); slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.Group == "slow" }) {
+		t.Fatalf("codex has a group it never switched on: %v", shown)
+	}
+	if shown, _ := provider.CatalogFor("claude"); !slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.Group == "slow" }) {
+		t.Fatalf("claude lost the group it switched on: %v", shown)
 	}
 
-	// nothing at all puts the whole catalog back and leaves no range
-	got = call("POST", "codex", `{"names":[]}`)
-	if _, ok := settings.Load().Visible["codex"]; ok {
-		t.Fatal("an empty range was kept")
+	// both on, then one off again
+	call("POST", "codex", `{"id":"group/slow","on":true}`)
+	if got := call("GET", "codex", ""); len(got.Scope.Names) != 2 {
+		t.Fatalf("both on: %v", got.Scope.Names)
 	}
-	if len(got.Scope.Names) != 0 || got.Used.Shown != got.Used.Catalog {
-		t.Fatalf("put back: %+v %+v", got.Scope, got.Used)
+	got = call("POST", "codex", `{"id":"group/fast","on":false}`)
+	if !slices.Equal(got.Scope.Names, []string{"group/slow"}) {
+		t.Fatalf("one off: %v", got.Scope.Names)
 	}
-	if ids := modelIDs(got.Models); !slices.Contains(ids, "other/m1") {
-		t.Fatalf("the list after putting it back: %v", ids)
+	if ids := modelIDs(got.Models); slices.Contains(ids, "group/fast") {
+		t.Fatalf("a switched-off group is still in the list: %v", ids)
+	}
+	// while a request naming it is still served (Resolve answers the group's
+	// first member), so an agent already on it keeps working
+	if _, _, ok := provider.Resolve("group/fast"); !ok {
+		t.Fatalf("a switched-off group is no longer served")
 	}
 
 	// an agent magpie doesn't know is refused

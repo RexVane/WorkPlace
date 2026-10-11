@@ -264,7 +264,13 @@ type mdModel struct {
 	ReleaseDate string `json:"release_date"`
 	Temperature *bool  `json:"temperature"` // false: rejects temperature/top_p
 	Thinks      bool   `json:"reasoning"`
-	Reasoning   []struct {
+	// Status is models.dev's word on where the model stands: "deprecated"
+	// for one its vendor has retired, "alpha"/"beta" for one not settled.
+	// A reseller listing the same model is not its maker, so its word
+	// counts only where the model's own vendor is the one saying it
+	// (DeprecatedBy).
+	Status    string `json:"status"`
+	Reasoning []struct {
 		Type   string   `json:"type"`
 		Values []string `json:"values"`
 	} `json:"reasoning_options"`
@@ -746,6 +752,39 @@ func EffortsOf(id string) []string {
 		return slices.Clone(efforts[b[:i]])
 	}
 	return nil
+}
+
+// DeprecatedBy reports whether the model's own vendor has retired it, as
+// models.dev's "status" says for the vendors among makers that list it: a
+// model one of its makers still serves is kept even where another has
+// retired its copy (DeepSeek's deepseek-v4-pro is live, where NVIDIA's is
+// marked deprecated), and one every maker listing it has retired goes even
+// where a reseller still lists it as if it were live.
+//
+// makers are the models.dev ids of the vendors that make the models they
+// serve, in the presets' order (provider.makerCatalogs); the id is matched
+// as ListedBy matches it, without a vendor's prefix and in any case.
+func DeprecatedBy(makers []string, id string) bool {
+	all := load()
+	b := bareID(id)
+	if r, ok := unprofiled(b); ok {
+		b = r
+	}
+	retired := false
+	for _, want := range []string{b, cutAt(b, '('), cutAt(b, ':')} {
+		for _, pid := range makers {
+			for key, m := range all[pid].Models {
+				if bareID(key) != want {
+					continue
+				}
+				if m.Status != "deprecated" {
+					return false // a maker of it still serves it
+				}
+				retired = true
+			}
+		}
+	}
+	return retired
 }
 
 // ListedBy is the reasoning levels the first of providers (models.dev

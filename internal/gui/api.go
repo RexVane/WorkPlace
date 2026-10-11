@@ -993,8 +993,10 @@ func Handler(w Windows, gw *gateway.Server) http.Handler {
 		//
 		// HiddenModels and OrderedModels are the other way round — keyed by
 		// agent, not by "<provider>/<model>" — so they are not among them,
-		// and belong to the Agents page.
+		// and belong to the Agents page. GroupsOn is the agents' too: which
+		// routing groups each may go through, switched in its own list.
 		in.Visible, in.HiddenModels, in.OrderedModels = cur.Visible, cur.HiddenModels, cur.OrderedModels
+		in.GroupsOn = cur.GroupsOn
 		in.FastPicks = cur.FastPicks           // switched in the agents' pickers (#954)
 		in.AgentEfforts = cur.AgentEfforts     // picked in an agent's row (#1003)
 		in.PluginCheckins = cur.PluginCheckins // set on its own (plugin-checkin below)

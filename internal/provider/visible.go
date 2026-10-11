@@ -206,21 +206,106 @@ func CatalogFor(agent string) (shown, hidden []Entry) {
 }
 
 // ListedFor is the catalog agent's visibility gives it, the models it may
-// pick to show or not among, and what the visibility keeps from it.
+// pick to show or not among, and what the visibility keeps from it: its
+// visibility's names, less the routing groups it may not go through — a
+// group is off for an agent until it is switched on for it alone
+// (GroupsOn), which is what 「路由组默认不启用」 says.
 func ListedFor(agent string) (listed, kept []Entry) {
 	all := Catalog()
 	names, ok := VisibleTo(agent)
-	if !ok {
-		return InOrder(agent, all), nil
-	}
 	for _, e := range all {
-		if Shows(names, e) {
-			listed = append(listed, e)
-		} else {
+		if ok && !Shows(names, e) {
 			kept = append(kept, e)
+			continue
 		}
+		if e.Group != "" && !GroupOn(agent, e.ID) {
+			kept = append(kept, e)
+			continue
+		}
+		listed = append(listed, e)
 	}
 	return InOrder(agent, listed), kept
+}
+
+// GroupsOn are the routing groups agent may go through, by entry id
+// ("group/<id>"). An agent the settings don't name has none: a group it is
+// not given here is kept out of its lists (its picker, the model list
+// magpie writes into its files and the gateway's model list alike, through
+// CatalogFor) until it is switched on for it, which is what 「路由组默认不
+// 启用」 asks for. Every provider's own models are untouched either way.
+func GroupsOn(agent string) map[string]bool {
+	s := heldSettings()
+	ids := s.GroupsOn[strings.ToLower(agent)]
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out
+}
+
+// GroupOn reports whether agent may go through this one routing group.
+func GroupOn(agent, id string) bool {
+	return GroupsOn(agent)[id]
+}
+
+// SetGroupOn turns one routing group on or off for agent alone. The switch
+// is per agent: turning a group on for one leaves every other agent as it
+// was, and an agent with no groups of its own still has none.
+func SetGroupOn(agent, id string, on bool) error {
+	agent = strings.ToLower(strings.TrimSpace(agent))
+	id = strings.TrimSpace(id)
+	if agent == "" {
+		return errors.New("no agent")
+	}
+	if id == "" {
+		return errors.New("no group")
+	}
+	s := settings.Load()
+	groups := slices.Clone(s.GroupsOn[agent])
+	if on {
+		if slices.Contains(groups, id) {
+			return nil
+		}
+		groups = append(groups, id)
+	} else {
+		i := slices.Index(groups, id)
+		if i < 0 {
+			return nil
+		}
+		groups = slices.Delete(groups, i, i+1)
+	}
+	slices.Sort(groups)
+	if s.GroupsOn == nil {
+		s.GroupsOn = map[string][]string{}
+	}
+	if len(groups) == 0 {
+		delete(s.GroupsOn, agent)
+	} else {
+		s.GroupsOn[agent] = groups
+	}
+	if err := settings.Save(s); err != nil {
+		return err
+	}
+	catalog.Touched()
+	return nil
+}
+
+// SetGroupsOff takes every routing group away from every agent: each one
+// keeps its providers' own models and goes on none of the catalog's
+// groups, until one is switched on for it in its own list. The answer is
+// how many agents had one switched on.
+func SetGroupsOff() (int, error) {
+	s := settings.Load()
+	changed := len(s.GroupsOn)
+	if changed == 0 {
+		return 0, nil
+	}
+	s.GroupsOn = nil
+	if err := settings.Save(s); err != nil {
+		return 0, err
+	}
+	catalog.Touched()
+	return changed, nil
 }
 
 // HiddenModels are the ids of the entries taken out of agent's lists.

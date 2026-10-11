@@ -17,6 +17,7 @@ import (
 // switching it tells the agents.
 func TestPlainNames(t *testing.T) {
 	prefsHome(t)
+	routingGroupsOn(t, "codex", "opencode") // a routing group is off until it is switched on
 	touched := 0
 	catalog.Changed = func() { touched++ }
 	t.Cleanup(func() { catalog.Changed = nil })

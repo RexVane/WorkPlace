@@ -33,6 +33,9 @@ func TestHiddenModels(t *testing.T) {
 	was := catalog.Changed
 	catalog.Changed = func() { told++ }
 	t.Cleanup(func() { catalog.Changed = was })
+	// the found groups are in the lists this test counts: a routing group
+	// is off for an agent until it is switched on for it (GroupsOn)
+	routingGroupsOn(t, "codex", "claude")
 
 	all, _ := CatalogFor("codex")
 	if err := SetHiddenModels("Codex", []string{" relay/m2 ", "other/m1", "relay/m2", ""}); err != nil {
