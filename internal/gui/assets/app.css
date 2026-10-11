@@ -3046,19 +3046,15 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-seg { display: inline-flex; flex: none; padding: 2px; border-radius: 8px; background: var(--seg-track); }
 .am-seg button { height: 24px; padding: 0 9px; border: 0; border-radius: 6px; background: none; color: var(--ctl-fg); font: inherit; font-size: 12px; cursor: pointer; transition: background-color .15s, color .15s; }
 .am-seg button.on { background: var(--seg-thumb); color: var(--fg); box-shadow: var(--seg-edge); }
-/* the range the agent's lists are narrowed to (`magpie visible`): the
-   button opens the sheet, and carries how many names are in it */
-.am-scope { flex: none; height: 28px; max-width: 132px; padding: 0 9px; border: 0; border-radius: 8px; background: var(--pill); color: var(--ctl-fg); font: inherit; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background-color .15s, color .15s; }
-.am-scope:hover { background: var(--accent-soft); color: var(--fg-2); }
-.am-scope.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.am-scope:focus-visible { outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
-.am-scope:disabled { color: var(--faint); cursor: default; }
 .am-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 2px; }
-/* the providers down the left (蓝猫 on Discord), the models of the one
-   picked beside them, each scrolling on its own */
+/* the sources down the left: every routing group with its own switch, then
+   the providers; the models of the one picked beside them, each scrolling
+   on its own */
 .am-body { flex: 1 1 auto; min-height: 0; display: flex; gap: 6px; }
 .am-body .am-list { min-width: 0; }
-.am-rail { flex: none; width: 176px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 2px 2px; border-right: 1px solid var(--line-2); }
+.am-rail { flex: none; width: 208px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 2px 2px; border-right: 1px solid var(--line-2); }
+/* a routing group's row: the name gives way before the switch does, and the
+   count goes with the name's line so a long one is still readable */
 .am-ri { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--fg-2); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; transition: background-color .12s; }
 .am-ri:hover { background: var(--pill); }
 .am-ri.on { background: var(--accent-soft); color: var(--fg); }
@@ -3066,6 +3062,16 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-ri .rn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .am-ri .c { flex: none; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .am-ri:focus-visible { outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+/* the rail's own headings: routing groups first, then the providers */
+.am-railhead { margin: 8px 8px 2px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--faint); }
+.am-railhead:first-child { margin-top: 2px; }
+/* a routing group's switch in the rail: on, its models are in this agent's
+   list; the row beside it shows them. Smaller than the app's own, since the
+   rail is narrow — the same slide, drawn to fit */
+.am-ri > .lib-switch { flex: none; width: 26px; height: 15px; border-radius: 8px; cursor: pointer; }
+.am-ri > .lib-switch i { width: 11px; height: 11px; }
+.am-ri > .lib-switch.on i { transform: translateX(11px); }
+.am-ri .c + .lib-switch { margin-left: 2px; }
 .am-gh { display: flex; align-items: center; margin: 6px 2px 0; }
 .am-fold { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 .am-fold > .ic, .am-fold > svg { width: 14px; height: 14px; flex: none; }
@@ -3088,12 +3094,16 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-mr .lg { flex: none; }
 .am-mr .lg > svg { color: var(--muted); }
 .am-mr.off .lg { opacity: .45; }
-/* a routing group's providers, discs as in a picker's field, in one width of slot, so the
-   names still start in a column */
-.am-g.routes .am-mr .lg { min-width: 56px; justify-content: flex-start; }
+/* a picked routing group's own member rows carry one icon of their own, so
+   they take the ordinary slot and their names have the room; the 56px slot
+   is for a routing group drawn as a row of its providers' discs, which is
+   the rail's matter now */
+.am-g.routes > .am-rows > .am-mr .lg { min-width: 0; }
 .am-mr .ic-stack .disc { width: 17px; height: 17px; }
 .am-mr .ic-stack .disc > .ic { width: 11px !important; height: 11px !important; }
-.am-mr .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s; }
+.am-mr .n { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; overflow: hidden; white-space: nowrap; transition: color .15s; }
+/* the model's own name gives way first; whose it is stays readable */
+.am-mr .n > .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .am-mr .x { flex: none; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .am-mr .ck { flex: none; display: inline-flex; justify-content: center; width: 16px; color: var(--accent); }
 .am-mr.off .n { color: var(--faint); }
@@ -3102,6 +3112,9 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-mr.lock .ck { opacity: .45; }
 .am-tag { margin-left: 6px; padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 500; }
 .am-none { padding: 18px 12px; color: var(--muted); font-size: 12.5px; text-align: center; }
+/* a routing group picked before it is switched on: its models are read
+   here, and the rail says where to turn it on */
+.am-note { margin: 2px 10px 8px; padding: 8px 10px; border-radius: 8px; background: var(--pill); color: var(--muted); font-size: 11.5px; line-height: 1.45; }
 .am-foot { display: flex; align-items: center; gap: 8px; margin: 8px 8px 0; padding: 10px 6px 2px; border-top: 1px solid var(--line-2); font-size: 11.5px; color: var(--muted); }
 .am-foot .sp { flex: 1; }
 .am-reset { border: 0; background: none; padding: 2px 4px; border-radius: 5px; color: var(--fg-2); font: inherit; font-size: 11.5px; cursor: pointer; }
@@ -3109,56 +3122,15 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-reset:disabled { color: var(--faint); cursor: default; }
 .am-reset[data-armed] { color: var(--red); background: var(--red-soft); }
 .am-dot { color: var(--faint); }
-/* Codex's list in the order it shows it (#855): the whole list, dragged by
-   any row; its grip shows only on the row under the pointer */
-.pop.am-pop.ordering .am-search, .pop.am-pop.ordering .am-rail { display: none; }
-.am-order { padding-top: 4px; }
-.am-rows.am-order .am-mr { padding-left: 14px; cursor: grab; user-select: none; -webkit-user-select: none; }
-.am-or .grip { flex: none; width: 6px; height: 11px; margin-right: -4px; background: radial-gradient(circle, var(--muted) .9px, transparent 1.2px) 0 0 / 3px 3.75px; opacity: 0; transition: opacity .15s; }
-.am-or:is(:hover, .dragging) .grip { opacity: 1; }
-/* apart: Safari before 15.4 drops a whole selector list with :focus-visible in it */
-.am-or:focus-visible .grip { opacity: 1; }
-@media (hover: none) { .am-or .grip { opacity: 1; } }
-.am-or .ix { flex: none; min-width: 16px; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; }
-.am-order.sorting .am-or { transition: transform .22s cubic-bezier(.22, 1, .36, 1); cursor: grabbing; }
-.am-order .am-or.dragging { position: relative; z-index: 2; transition: none; background: var(--pop-bg); box-shadow: 0 6px 18px rgba(20, 22, 30, .12), 0 0 0 1px var(--line); }
-
-/* ---- the range sheet (settings' Visible, `magpie visible`) ---------------- */
-/* In the list's own place: the names the catalog offers — families,
-   providers, routing groups — each ticked or not. A model the range leaves
-   out stays listed but dimmed, and says why when the pointer rests on it. */
-.pop.am-pop.range .am-search, .pop.am-pop.range .am-rail { display: none; }
-.am-sheet { padding: 2px 0 4px; }
-.am-sh { display: flex; align-items: baseline; gap: 8px; margin: 4px 12px 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
-.am-sh .sp { flex: 1; }
-.am-sh .c { font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
-.am-sheet .am-d { margin: 0 12px 8px; }
-/* a section's head: the list's, without its twisty or its "hide all" */
-.am-sg > .am-gh { margin-top: 8px; }
-.am-sg .am-fold { gap: 0; cursor: default; }
-/* a name's row: the title column wider than a model row's, its size at the
-   right, its tick in the same column as the models' */
-.am-sr { height: 30px; gap: 8px; padding-right: 12px; }
-.am-sr .n { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; }
-.am-sr .am-id, .am-sr .am-sc-n { flex: none; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
-.am-sr .am-id { max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.am-sr.off .am-id, .am-sr.off .am-sc-n { opacity: .7; }
-/* a routing group's switch: the app's own, so it slides as every other
-   switch does (library.css). A family's and a provider's stay a tick:
-   what they take away is their models, not a way through magpie */
-.am-sr.sw { height: 34px; }
-.am-sr.sw .lib-switch { margin-left: 2px; }
-.am-sr.sw.off .n { color: var(--muted); }
-/* a switched-on group's own models, under it: indented past the switch's
-   column, a tick each — the same switch the list's own rows write */
-.am-sown { padding-left: 22px; margin-bottom: 2px; border-left: 2px solid var(--line-2); margin-left: 10px; }
-.am-sown .am-mown { height: 28px; gap: 8px; font-size: 12px; }
-.am-sown .am-mown .lg { flex: none; display: inline-flex; color: var(--muted); }
-.am-sown .am-mown .lg > .ic { width: 13px; height: 13px; }
-.am-sown .am-mown.off .n { color: var(--faint); }
-.am-sown .am-mown.off .lg { opacity: .45; }
-.am-sown .am-mown.lock { cursor: default; }
-.am-sown .am-mown.lock:hover { background: none; }
+/* ---- the rail's routing groups ------------------------------------------- */
+/* A picked routing group's own models on the right, a tick each — the same
+   switch the list's own rows write. */
+/* whose model it is leads the row: a group's members often carry the same
+   name from several providers, and the source is what tells them apart.
+   The separator follows it, so the name reads as that source's */
+.am-by { flex: none; color: var(--fg-2); }
+.am-by::after { content: ":"; margin-right: 5px; color: var(--faint); }
+.am-note + .am-mr { margin-top: 4px; }
 .am-mr.out .n { color: var(--faint); }
 .am-mr.out .lg { opacity: .45; }
 .am-mr.out .x { opacity: .5; }

@@ -259,3 +259,18 @@
   - 真实实例（网关 3425 / 预览 3437）：开 `group/auto-claude-fable-5` → 列表 76/92，其成员 `claude/claude-fable-5`、`copilot/claude-fable-5` 都列在组下；勾掉前者 → 75/92 且该成员标 hidden、组仍开着、后者不受影响；关组 → 74/92、组行退出列表，而被勾掉的记录留着（下次开组仍是隐藏）。
 - 影响文件：`internal/provider/visible.go`（`GroupMembers`）、`internal/gui/agent_models.go`（`scopeGroupJSON`/`scopeModelJSON`/`Hidden`、POST 收 hidden）、`internal/gui/assets/app.js`（两级渲染、`switchGroup`/`tickModel`/`writeScope`/`setScope`）、`internal/gui/assets/app.css`（`.am-sown`/`.am-mown`）、`internal/gui/agent_scope_test.go`、`internal/gui/tests/agent-routing-sheet.test.cjs`、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
 - 下一步：用户在窗口里看一眼两级面板；`.gitattributes` 仍未定。
+
+## 2026-10-11 15:40 +08:00 | deepseek-v4.1-flash | 路由组搬进模型列表左栏（开关+成员），去掉弹窗与「排序」，筛选改 全部/已显示/已隐藏
+- 改了什么（用户原话：「我觉得没必要点击路由那个，可以去掉。我觉得左边就已经是全部路由组了，左边添加个按钮，然后右边就是路由组的模型，我可以选择打勾显示启动哪些模型。然后修改一下帅选去掉排序，只保留 全部，显示，隐藏」；又问「全部隐藏算不算Codex?把提供商调到前面来」）：
+  - **去掉「路由」按钮与它弹出的面板**：那一层是硬塞的。路由组改到模型列表**左栏**，与供应商并列。
+  - **左栏分两段**：上段「路由组」列出**全部**路由组（不只开着的），每个右边一个小开关（复用 `.lib-switch`，按栏宽缩小）；下段「供应商」同原来。点某个路由组，右边就是**它的成员模型**，一行一个勾。
+  - **成员模型在组关着时也能看**：右栏照样列出该组成员（数据来自 `provider.GroupMembers`），顶部一句说明「这个路由组对 X 是关着的：在左边列表里把它打开，X 才会走它」。勾掉某条 = 这个 Agent 不显示它，**组照旧路由它**；别的 Agent 不受影响。勾选写 `settings.HiddenModels`（与列表逐条勾同一套）。
+  - **成员行把来源放前面**：`Claude Code: Claude Opus 5.5` / `Copilot: Claude Opus 5.5`。一个组的成员常是多家同一模型名，来源在前才分得清。顺带修了名字被过早截断（旧的 56px 图标槽不再适用于成员行）。
+  - **筛选改成 全部 / 已显示 / 已隐藏**：去掉「排序」，连带**去掉拖动排序**（改的是 Codex 自己 /model 菜单顺序，#855/#1052）。`settings.OrderedModels` 与 `provider.SetModelOrder` 保留（已保存的顺序仍生效、Go 测试仍覆盖），只是界面不再提供入口。
+  - **「全部隐藏 / 全部显示」的说法**：用户问「算不算 Codex」——算。确认文案改成点名范围：「隐藏 N 个模型?包括所有供应商、Agent 自己的(官方)和每个路由组。再点一次」（中/繁/日/德四语，问号按各语言习惯：中日全角、德半角）。
+- 验证：
+  - `go build -tags nogui ./...`、`go vet`、`node --check app.js` 全过；`go test -tags nogui ./internal/gui -run 'TestAgentScopeAPI|TestRoutingGroupsOffEverywhere|TestSettingsSaveKeepsWhatItDoesNotSend'` 全过；`./internal/gui` 全量只剩 4 个既有环境失败（TestGatewayHeldByAContainer、TestGatewayFixQuitsOnlyAMagpie、TestPurposeAssetMatchesUsage、TestUpdateThatWontStart）。
+  - 浏览器：`agent-routing-sheet.test.cjs` 重写为新左栏（路由组带开关、点开看成员、关着也有提示、勾掉一条、筛选三档；Chromium + WebKit × en/zh 4 跑全过）；`agent-models.test.cjs` 跟上新界面（路由组不再作为列表一段、OpenRouter/OpenAI 段序前移、确认文案）；`i18n-keys`、`gui-ja`、`gui-de` 全过；`gui-zh-tw` 只剩既有失败（6.8 萬 vs 6.81 萬，用量数字格式，与本次无关）。
+  - 真实实例（网关 3425 / 预览 3437，源码实例重启后）：左栏「路由组 / 供应商」两段、16 个开关；点 `Claude Opus 5.5` → 右栏 `Claude Code: Claude Opus 5.5`、`Copilot: Claude Opus 5.5`；开开关 → 该组进列表；勾掉一条 → 该条隐藏、组仍开着、另一家不受影响；「全部隐藏」确认文字如上述。
+- 影响文件：`internal/gui/assets/app.js`（模型列表整段重写：左栏分段+开关、成员右栏、筛选三档、去掉排序与弹窗）、`internal/gui/assets/app.css`（`.am-rail` 加宽到 208px、`.am-railhead`、`.am-ri` 内开关、`.am-by` 来源在前、`.am-note`、成员行图标槽）、`internal/gui/assets/i18n.js`（新提示 1 条 + 确认文案 2 条 × 4 语）、`internal/gui/agent_models.go`（`scopeModelJSON.Provider`）、`internal/gui/tests/agent-routing-sheet.test.cjs`（重写）、`internal/gui/tests/agent-models.test.cjs`、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
+- 下一步：等用户在窗口里试左栏开关是否合意；`.gitattributes`（`text eol=lf`，防 i18n.js 整文件 diff）仍未定。

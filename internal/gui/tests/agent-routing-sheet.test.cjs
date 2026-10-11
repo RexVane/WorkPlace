@@ -1,9 +1,9 @@
 // Run with Node's test runner and Playwright on the module path; see README.md.
-// The routing sheet of an agent's model list, in the two steps the reader
-// works in: switch a routing group on for the agent, and then, under it,
-// tick which of that group's models the agent is shown. Routing groups are
-// off until one is switched on; a model ticked off is hidden from this agent
-// alone, while the group still routes through it.
+// An agent's model list, in the two steps the reader works in: the left rail
+// lists every routing group with its own switch (may this agent go through
+// it), and picking one shows that group's models on the right, a tick each
+// (is the agent shown that model). A group's models are readable whether it
+// is on or off, so they can be picked before the group itself is switched on.
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
@@ -12,15 +12,17 @@ const { chromium, webkit } = require("playwright");
 
 const assets = path.resolve(__dirname, "../assets");
 
-// the catalog: a provider's own models, and a group made of two of them
+// the catalog: two providers' own models, plus the groups' entries (the
+// rail is only drawn with more than two sources, so a second provider is
+// needed for its own headings to appear)
 const full = () => [
   { id: "relay/m1", name: "M1", group: "Relay", icon: "openai", candidates: ["relay"] },
   { id: "relay/m2", name: "M2", group: "Relay", icon: "openai", candidates: ["relay"] },
-  { id: "relay/m3", name: "M3", group: "Relay", icon: "openai", candidates: ["relay"] },
+  { id: "other/m1", name: "OTHER1", group: "Other", icon: "generic", candidates: ["other"] },
+  { id: "third/m1", name: "THIRD1", group: "Third", icon: "generic", candidates: ["third"] },
 ];
 
 function fixture(lang) {
-  // what the sheet holds: the groups on, and the whole hidden set
   let on = [];
   let hidden = [];
   const all = [
@@ -29,18 +31,18 @@ function fixture(lang) {
   ];
   const members = {
     "group/fast": [
-      { id: "relay/m1", name: "M1", icon: "openai" },
-      { id: "relay/m2", name: "M2", icon: "openai" },
+      { id: "relay/m1", name: "M1", provider: "Relay", icon: "openai" },
+      { id: "relay/m2", name: "M2", provider: "Relay", icon: "openai" },
     ],
-    "group/slow": [{ id: "relay/m3", name: "M3", icon: "openai" }],
+    "group/slow": [{ id: "relay/m2", name: "M2", provider: "Relay", icon: "openai" }],
   };
   const hiddenSet = () => new Set(hidden);
-  // the models the agent's list holds: its provider's, plus the groups it
-  // goes through — less what is hidden
   const listed = () => {
     const off = hiddenSet();
     const out = full().filter((m) => !off.has(m.id));
-    for (const g of on) out.push({ id: g, name: g === "group/fast" ? "Fast" : "Slow", group: "Routing groups", icons: ["openai"], candidates: [g] });
+    for (const g of on) {
+      out.push({ id: g, name: g === "group/fast" ? "Fast" : "Slow", group: "Routing groups", icons: ["openai"], candidates: [g] });
+    }
     return out;
   };
   const count = () => ({ shown: listed().length, listed: listed().length, by: [] });
@@ -52,7 +54,6 @@ function fixture(lang) {
     }],
     profiles: [], settings: { lang, theme: "light" },
   });
-  const off = hiddenSet();
   const scope = () => ({
     scope: {
       agent: "codex", names: on, all, hidden,
@@ -89,24 +90,16 @@ function fixture(lang) {
 }
 
 const W = {
-  en: {
-    off: "Routing: off", one: "Routing: 1", two: "Routing: 2",
-    head: (n, all) => `${n} of ${all} on`,
-    note: /^Codex goes on its own provider's models/,
-  },
-  zh: {
-    off: "路由：全关", one: "路由：1", two: "路由：2",
-    head: (n, all) => `${n} / ${all} 已开`,
-    note: /^Codex 走它自己供应商的模型/,
-  },
+  en: { seg: ["All", "Shown", "Hidden"], routes: "Routing groups", providers: "Providers", note: /^This routing group is off for Codex/ },
+  zh: { seg: ["全部", "已显示", "已隐藏"], routes: "路由组", providers: "供应商", note: /^这个路由组对 Codex 是关着的/ },
 };
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
   for (const lang of ["en", "zh"]) {
-    test(`${engine} ${lang}: an agent's routing sheet, group then its models`, async (t) => {
+    test(`${engine} ${lang}: a routing group in the rail, its models on the right`, async (t) => {
       const w = W[lang];
       const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: "chromium" }));
-      const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+      const page = await browser.newPage({ viewport: { width: 1040, height: 820 } });
       page.setDefaultTimeout(5000);
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
@@ -115,7 +108,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       t.after(async () => {
         if (process.env.ARTIFACT_DIR) {
           await fs.mkdir(process.env.ARTIFACT_DIR, { recursive: true });
-          await page.screenshot({ path: path.join(process.env.ARTIFACT_DIR, `${engine}-${lang}-routing.png`) });
+          await page.screenshot({ path: path.join(process.env.ARTIFACT_DIR, `${engine}-${lang}-rail.png`) });
         }
         await browser.close();
       });
@@ -126,67 +119,63 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const pop = page.locator(".am-pop:not(.leaving)");
       await pop.waitFor();
       await page.waitForFunction(() => document.getAnimations().length === 0);
+      await page.waitForTimeout(400); // the scope read comes back
 
-      // step one: no group is on, so no group has models under it
-      const scopeBtn = pop.locator(".am-scope");
-      assert.equal(await scopeBtn.innerText(), w.off);
-      await scopeBtn.click();
-      const sheet = pop.locator(".am-sheet");
-      await sheet.waitFor();
-      assert.match(await sheet.locator(".am-d").innerText(), w.note);
-      assert.equal(await sheet.locator(".am-sh .c").innerText(), w.head(0, 2));
-      assert.equal(await sheet.locator(".am-sr").count(), 2);
-      assert.equal(await sheet.locator(".am-sown").count(), 0, "no group is on, so none is open");
-      assert.equal(await pop.locator(".am-search").isVisible(), false, "the sheet takes the list's tools");
+      // the scope read is what fills the rail's groups; wait for it
+      await pop.locator(".am-railhead").first().waitFor();
 
-      // switching one on opens it, with its own models under the switch
-      await sheet.locator(".am-sr", { hasText: "Fast" }).first().click();
-      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.one);
+      // the toolbar is All / Shown / Hidden alone: no Order, no Scope button
+      assert.deepEqual(await pop.locator(".am-seg button").allInnerTexts(), w.seg);
+      assert.equal(await pop.locator(".am-scope").count(), 0, "the routing button is gone");
+      assert.equal(await pop.locator(".am-search").isVisible(), true);
+
+      // the rail holds the routing groups first, then the providers
+      assert.deepEqual(await pop.locator(".am-railhead").allInnerTexts(), [w.routes, w.providers].map((s) => s.toUpperCase()));
+      const rails = pop.locator(".am-ri");
+      const fast = rails.filter({ hasText: "Fast" }).first();
+      const slow = rails.filter({ hasText: "Slow" }).first();
+      assert.equal(await rails.filter({ has: page.locator(".lib-switch") }).count(), 2, "one switch a group");
+
+      // a group's own models are readable while it is off, with the note; the
+      // source leads each row, so two providers' same-named models differ
+      await fast.click();
+      await page.waitForTimeout(200);
+      assert.match(await pop.locator(".am-note").innerText(), w.note);
+      assert.deepEqual(await pop.locator(".am-mr .n").allInnerTexts(), ["Relay\nM1", "Relay\nM2"]);
+      assert.equal(await pop.locator('.am-mr[aria-checked="true"]').count(), 2);
+
+      // switching it on lets the agent go through it: the group joins the
+      // list, and the note goes
+      await fast.locator(".lib-switch").click();
+      await page.waitForTimeout(300);
       assert.deepEqual(fx.on(), ["group/fast"]);
-      assert.equal(await sheet.locator(".am-sown").count(), 1);
-      const own = sheet.locator(".am-sown .am-mown");
-      assert.equal(await own.count(), 2, "Fast is made of two models");
-      assert.deepEqual(await own.locator(".n").allInnerTexts(), ["M1", "M2"]);
-      assert.equal(await sheet.locator('.am-mown[aria-checked="true"]').count(), 2);
+      assert.equal(await fast.locator(".lib-switch.on").count(), 1);
+      assert.equal(await pop.locator(".am-note").count(), 0, "the note goes once it is on");
 
-      // step two: ticking one of the group's models hides it from this
-      // agent alone — the group stays on, and the other agent's list is
-      // untouched (the fixture holds one agent, so only this is checked)
-      await own.first().click();
-      await page.waitForTimeout(200);
-      assert.deepEqual(fx.hidden(), ["relay/m1"], "the ticked-off model is the hidden one");
+      // and a tick under the group hides that model for this agent alone
+      await pop.locator(".am-mr").first().click();
+      await page.waitForTimeout(300);
+      assert.deepEqual(fx.hidden(), ["relay/m1"]);
       assert.deepEqual(fx.on(), ["group/fast"], "the group is still on");
-      // the sheet was drawn again, so the rows are looked up afresh
-      assert.equal(await pop.locator('.am-sown .am-mown[aria-checked="false"]').count(), 1);
-      assert(await pop.locator(".am-sown .am-mown").first().evaluate((e) => e.classList.contains("off")));
+      assert.equal(await pop.locator('.am-mr[aria-checked="false"]').count(), 1);
 
-      // closing it: the group row and its models are in the list, less the
-      // one ticked off (the fixture holds a single agent, so its own
-      // provider's M3 is there too)
-      await scopeBtn.click();
-      await sheet.waitFor({ state: "detached" });
-      const ids = await pop.locator(".am-mr:not(.am-sr)").evaluateAll((els) => els.map((e) => e.querySelector(".n")?.textContent));
-      assert.deepEqual(ids.filter(Boolean).sort(), ["Fast", "M2", "M3"], "M1 is hidden");
-
-      // and back in the sheet, ticking it on again puts it back
-      await scopeBtn.click();
-      await sheet.waitFor();
-      assert.equal(await sheet.locator(".am-sown .am-mown").count(), 2);
-      await sheet.locator(".am-sown .am-mown").first().click();
+      // "Hidden" shows what is not in the list; "All" brings everything back
+      await pop.locator(".am-seg button", { hasText: w.seg[2] }).click();
       await page.waitForTimeout(200);
-      assert.deepEqual(fx.hidden(), []);
+      assert.deepEqual(await pop.locator(".am-mr .n").allInnerTexts(), ["Relay\nM1"]);
+      await pop.locator(".am-seg button", { hasText: w.seg[0] }).click();
+      await page.waitForTimeout(200);
+      assert.equal(await pop.locator(".am-mr").count(), 2);
 
-      // a second group, and its own single model
-      await sheet.locator(".am-sr", { hasText: "Slow" }).first().click();
-      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.two);
+      // the second group, its own single model, and off again
+      await slow.click();
+      await page.waitForTimeout(200);
+      assert.deepEqual(await pop.locator(".am-mr .n").allInnerTexts(), ["Relay\nM2"]);
+      await slow.locator(".lib-switch").click();
+      await page.waitForTimeout(300);
       assert.deepEqual(fx.on().sort(), ["group/fast", "group/slow"]);
-      assert.equal(await sheet.locator(".am-sown").count(), 2);
-      assert.deepEqual(await sheet.locator(".am-sown").nth(1).locator(".n").allInnerTexts(), ["M3"]);
-
-      // switching one off closes it again and takes its models out
-      await sheet.locator(".am-sr", { hasText: "Slow" }).first().click();
-      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.one);
-      assert.equal(await sheet.locator(".am-sown").count(), 1, "the switched-off group has no models shown");
+      await slow.locator(".lib-switch").click();
+      await page.waitForTimeout(300);
       assert.deepEqual(fx.on(), ["group/fast"]);
       assert.deepEqual(errors, []);
     });

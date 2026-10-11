@@ -2335,10 +2335,9 @@ async function openAgentModels(a, anchor, ev) {
     },
   };
   document.addEventListener("mousedown", loading.away, true);
-  // every agent's list goes in the order dragged here (Codex's, #855; the
-  // others', #1052)
-  let models, ordered = false;
-  try { ({ models, ordered } = await api("agent-models/" + encodeURIComponent(a.id))); }
+  // every agent's list, as magpie hands it to the agent
+  let models;
+  try { ({ models } = await api("agent-models/" + encodeURIComponent(a.id))); }
   catch (e) {
     if (agentModelsLoading === loading) { loading.drop(); status(e.message, "err"); }
     return;
@@ -2364,31 +2363,85 @@ async function openAgentModels(a, anchor, ev) {
   q.placeholder = t("Search models");
   search.append(q);
   const seg = el("div", "am-seg");
-  const segAll = el("button", "on", t("All")), segOn = el("button", "", t("Shown")), segOrder = el("button", "", t("Order"));
-  segAll.type = segOn.type = segOrder.type = "button";
-  seg.append(segAll, segOn, segOrder);
-  // the range the agent's lists are narrowed to (`magpie visible`): which
-  // providers, families and routing groups are in it, ticked in the sheet
-  // this opens. It is what Settings' Visible holds, so the agent's own
-  // config files and the gateway's model list follow it too
-  const scopeBtn = el("button", "am-scope");
-  scopeBtn.type = "button";
-  scopeBtn.setAttribute("aria-expanded", "false");
-  tools.append(search, scopeBtn, seg);
+  // which of the picked source's models the list shows
+  const segAll = el("button", "on", t("All")), segOn = el("button", "", t("Shown")), segOff = el("button", "", t("Hidden"));
+  segAll.type = segOn.type = segOff.type = "button";
+  seg.append(segAll, segOn, segOff);
+  tools.append(search, seg);
   const list = el("div", "am-list");
   const foot = el("div", "am-foot");
-  // every one at once, the model in use aside
   const hideAll = el("button", "am-reset am-hide", t("Hide all"));
   const reset = el("button", "am-reset", t("Show all"));
   hideAll.type = reset.type = "button";
-  const unorder = el("button", "am-reset", t("Default order"));
-  unorder.type = "button";
   const footNote = el("span", "", t("New models are shown"));
-  // takes back a first click on Hide all or Show all (twice, below)
   let disarm = () => {};
   foot.append(footNote, el("span", "sp"), hideAll, el("span", "am-dot", "·"), reset);
-  // groups as the catalog has them, routing groups first; a long one
-  // starts folded, unless the agent is set to a model in it
+  // ---- the routing groups ----------------------------------------------------
+  // Which routing groups this agent may go through (settings' GroupsOn), and
+  // which of each group's own models it is shown (settings.HiddenModels). A
+  // group is off until its switch is turned on for this agent: the rail
+  // lists every group the catalog has, switch and all, and picking one shows
+  // its own models on the right, a tick each.
+  let scopeData = null, scopeLoading = null;
+  let groupsOn = new Set();
+  const groupOn = (name) => groupsOn.has(String(name).toLowerCase());
+  const scopeGroups = () => (scopeData?.all || []).filter((s) => s.kind === "group")
+    .sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
+  const groupMembers = (id) => ((scopeData?.models || []).find((g) => g.id === id) || {}).models || [];
+  const setScope = (r) => {
+    const cur = r.scope || {};
+    scopeData = { names: cur.names || [], all: cur.all || scopeData?.all || [],
+      models: cur.models || scopeData?.models || [], hidden: cur.hidden || [], used: r.used };
+    groupsOn = new Set((cur.names || []).map((n) => String(n).toLowerCase()));
+  };
+  const loadScope = async () => {
+    if (scopeData) return scopeData;
+    if (scopeLoading) return scopeLoading;
+    scopeLoading = api("agent-scope/" + encodeURIComponent(a.id)).then(async (r) => {
+      setScope(r);
+      if (agentModels === me) draw();
+      return scopeData;
+    }).catch((err) => { scopeData = null; throw err; }).finally(() => { scopeLoading = null; });
+    return scopeLoading;
+  };
+  // the write both levels share: the page is drawn again at once, then the
+  // answer's own list replaces what it carried
+  const writeScope = (body) => {
+    me.changed = true;
+    me.saving = me.saving.then(async () => {
+      const r = await api("agent-scope/" + encodeURIComponent(a.id), body);
+      setScope(r);
+      if (r.models) {
+        const was = new Map(models.map((m) => [m.id, m]));
+        models.splice(0, models.length, ...r.models.map((m) => was.get(m.id) || m));
+        regroup();
+      }
+      if (r.count) { me.count = a.models = r.count; fillModelsEntry(me.anchor, a); }
+      state = await api("state");
+      renderAgents();
+      draw();
+    }).catch((err) => status(err.message, "err"));
+  };
+  // switchGroup: the group's own switch — may this agent go through it
+  const switchGroup = (id, on) => {
+    const key = String(id).toLowerCase();
+    if (on) groupsOn.add(key);
+    else groupsOn.delete(key);
+    draw();
+    writeScope({ id, on });
+  };
+  // tickModel: one of a group's models, ticked or unticked for this agent
+  // alone (the same switch the list itself writes), the group untouched
+  const tickModel = (groupId, m, show) => {
+    const hidden = new Set(scopeData?.hidden || []);
+    if (show) hidden.delete(m.id);
+    else hidden.add(m.id);
+    for (const x of groupMembers(groupId)) if (x.id === m.id) x.hidden = !show;
+    draw();
+    writeScope({ id: groupId, on: groupOn(groupId), hidden: [...hidden] });
+  };
+  // groups as the catalog has them, routing groups first; a long one starts
+  // folded, unless the agent is set to a model in it
   const groups = [];
   const regroup = () => {
     groups.length = 0;
@@ -2401,9 +2454,9 @@ async function openAgentModels(a, anchor, ev) {
   };
   regroup();
   const shut = new Set(groups.filter((g) => groups.length > 1 && g.models.length > 8 && !g.models.some((m) => m.inUse)).map((g) => g.name));
-  // with a few providers, a rail of them down the left: one picked shows
-  // its models alone, so a long list is one click away rather than a
-  // scroll down past the others (蓝猫 on Discord); a search looks in all
+  // with a few sources, a rail of them down the left: one picked shows its
+  // models alone, so a long list is one click away rather than a scroll past
+  // the others; a search looks in all
   const railed = groups.length > 2 && innerWidth >= 600;
   let pick = "";
   const rail = el("div", "am-rail");
@@ -2417,11 +2470,12 @@ async function openAgentModels(a, anchor, ev) {
     if (!railed) return;
     const top = rail.scrollTop;
     rail.replaceChildren();
-    const item = (name, label, lead, on, n) => {
+    const item = (name, label, lead, on, n, trailing) => {
       const b = el("button", "am-ri" + (pick === name ? " on" : ""));
       b.type = "button";
       b.setAttribute("aria-pressed", String(pick === name));
       b.append(lead, el("span", "rn", label), el("span", "c", `${on}/${n}`));
+      if (trailing) b.append(trailing);
       b.title = label;
       b.onclick = () => { pick = name; q.value = ""; list.scrollTop = 0; draw(); };
       rail.append(b);
@@ -2429,26 +2483,37 @@ async function openAgentModels(a, anchor, ev) {
     const all = el("span", "ic");
     all.append(svg("M3 4.5h10M3 8h10M3 11.5h10", 14, 1.5));
     item("", t("All providers"), all, models.filter((m) => !m.hidden).length, models.length);
+    // every routing group the catalog has, its switch beside it: on, the
+    // group's models are in this agent's list; the row itself shows them
+    const rgs = scopeGroups();
+    if (rgs.length) {
+      rail.append(el("div", "am-railhead", t("Routing groups")));
+      for (const s of rgs) {
+        const on = groupOn(s.name);
+        const sw = el("span", "lib-switch" + (on ? " on" : ""));
+        sw.append(el("i"));
+        sw.onclick = (e) => { e.stopPropagation(); switchGroup(s.name, !on); };
+        const own = groupMembers(s.name);
+        item(s.name, s.label || s.name, svg(FAN, 14, 1.5),
+          on ? own.filter((m) => !m.hidden).length : 0, own.length, sw);
+      }
+      rail.append(el("div", "am-railhead", t("Providers")));
+    }
     for (const g of groups) {
-      const route = g.name === ROUTING_GROUPS;
-      item(g.name, route ? t(g.name) : g.name, route ? svg(FAN, 14, 1.5) : icon(g.icon || "generic"),
+      if (g.name === ROUTING_GROUPS) continue; // the groups are above, one by one
+      item(g.name, g.name, icon(g.icon || "generic"),
         g.models.filter((m) => !m.hidden).length, g.models.length);
     }
     rail.scrollTop = top;
   };
   // under "Shown", one just turned off stays until the view changes
-  let onlyShown = false, kept = new Set();
-  // under "Order", the models shown, as the agent lists them
-  let ordering = false;
-  // and the range sheet, in the list's own place while it is open
-  let scoping = false;
+  let onlyShown = false, onlyHidden = false, kept = new Set();
 
   const me = agentModels = { a, anchor, box, saving: Promise.resolve(), changed: false };
   const save = () => {
     me.changed = true;
     const hidden = models.filter((m) => m.hidden).map((m) => m.id);
     me.hidden = new Set(hidden);
-    // by whose they are, as the state counts them, for a connected row's chips
     const by = [];
     for (const m of models) {
       if (m.hidden) continue;
@@ -2459,8 +2524,6 @@ async function openAgentModels(a, anchor, ev) {
     const names = models.filter((m) => !m.hidden).slice(0, 3).map((m) => m.name);
     const count = { shown: models.length - hidden.length, listed: models.length, by, names };
     me.count = a.models = count;
-    // the line under the name counts them, a menu's button names them; an
-    // opened row is drawn again
     if (me.anchor.classList.contains("ag-models")) fillModelsEntry(me.anchor, a);
     else if (me.anchor.classList.contains("ag-menu")) {
       fillMenuButton(me.anchor, a);
@@ -2471,86 +2534,96 @@ async function openAgentModels(a, anchor, ev) {
     me.saving = me.saving.then(() => api("agent-models/" + encodeURIComponent(a.id), { hidden }))
       .catch((e) => status(e.message, "err"));
   };
-  // the shown models as the agent lists them: as dragged, or, before any
-  // drag, Codex's own (a ChatGPT account's) ahead of magpie's, as its
-  // /model has them
-  const inOrder = () => {
-    const shown = models.filter((m) => !m.hidden);
-    return ordered ? shown : [...shown.filter((m) => m.own), ...shown.filter((m) => !m.own)];
-  };
-  const saveOrder = (ids) => {
-    me.changed = true;
-    me.saving = me.saving.then(() => api("agent-models/" + encodeURIComponent(a.id), { order: ids }))
-      .catch((e) => status(e.message, "err"));
-    return me.saving;
-  };
-  const moveTo = (id, to) => {
-    const shown = inOrder();
-    const from = shown.findIndex((m) => m.id === id);
-    to = Math.max(0, Math.min(shown.length - 1, to));
-    if (from < 0 || to === from) return false;
-    shown.splice(to, 0, ...shown.splice(from, 1));
-    // the hidden after them, as they were; the groups keep the new order
-    models.splice(0, models.length, ...shown, ...models.filter((m) => m.hidden));
-    for (const g of groups) g.models.sort((x, y) => models.indexOf(x) - models.indexOf(y));
-    ordered = true;
-    saveOrder(shown.map((m) => m.id));
-    return true;
-  };
-  const drawOrder = () => {
-    const top = list.scrollTop;
-    list.replaceChildren();
-    const body = el("div", "am-rows am-order");
-    body.setAttribute("role", "list");
-    const shown = inOrder();
-    shown.forEach((m, i) => {
-      const r = el("div", "am-mr am-or");
-      r.tabIndex = 0;
-      r.dataset.id = m.id;
-      r.setAttribute("role", "listitem");
-      r.title = t("Drag to move · Alt+↑/↓ from the keyboard");
-      const lg = m.group === ROUTING_GROUPS ? svg(FAN, 14, 1.5) : icon(m.logo || m.icon || "generic");
-      lg.classList.add("lg");
-      r.append(el("span", "grip"), el("span", "ix", String(i + 1)), lg, el("span", "n", m.name),
-        el("span", "x", m.group === ROUTING_GROUPS ? t(m.group) : m.group));
-      r.onkeydown = (e) => {
-        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
-        e.preventDefault();
-        if (!moveTo(m.id, i + (e.key === "ArrowUp" ? -1 : 1))) return;
-        draw();
-        list.querySelector(`.am-or[data-id="${CSS.escape(m.id)}"]`)?.focus({ preventScroll: true });
-      };
-      r.onpointerdown = (e) => dragRows(e, r, r, body, [...body.children], (to) => { moveTo(m.id, to); draw(); });
-      body.append(r);
-    });
-    list.append(body);
-    if (!shown.length) list.append(el("div", "am-none", t("No matches.")));
-    list.scrollTop = top;
-    unorder.disabled = !ordered;
+  // one row of the right-hand list, whatever source it came from
+  const modelRow = (m, inGroup) => {
+    const r = el("button", "am-mr" + (m.hidden ? " off" : "") + (m.inUse ? " lock" : ""));
+    r.type = "button";
+    r.setAttribute("role", "menuitemcheckbox");
+    r.setAttribute("aria-checked", String(!m.hidden));
+    r.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name }) : m.id;
+    // whose model it is first, then the name: a group's members often carry
+    // the same name from several providers, and the source is what tells
+    // them apart, so it leads. The name in a span of its own, so a narrow
+    // pop shortens the name and leaves the source readable
+    const n = el("span", "n");
+    if (m.provider && inGroup) n.append(el("span", "am-by", m.provider));
+    n.append(el("span", "nm", m.name));
+    if (m.inUse) n.append(el("span", "am-tag", t("Current")));
+    const ck = el("span", "ck");
+    if (!m.hidden) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
+    const route = m.group === ROUTING_GROUPS;
+    let lg;
+    if (route && m.icons?.length > 1) lg = stackIcon(m.icons);
+    else if (route && m.icons?.length) {
+      const d = el("span", "disc");
+      d.append(icon(m.icons[0] || "generic"));
+      lg = el("span", "ic-stack");
+      lg.append(d);
+    } else lg = m.logo && !route ? icon(m.logo) : el("span", "ic");
+    if (route && !m.icons?.length) lg.append(svg(FAN, 14, 1.5));
+    lg.classList.add("lg");
+    const ctx = inGroup && m.context === undefined ? "" : ctxShort(m.context);
+    r.append(lg, n, el("span", "x", ctx), ck);
+    if (m.inUse) r.setAttribute("aria-disabled", "true");
+    else r.onclick = () => {
+      if (inGroup) return tickModel(pick, m, m.hidden);
+      m.hidden = !m.hidden;
+      if (m.hidden) kept.add(m.id);
+      save();
+      draw();
+    };
+    return r;
   };
   const draw = () => {
-    if (ordering) return drawOrder();
-    if (scoping && scopeData) return drawSheet();
     const top = list.scrollTop;
     list.replaceChildren();
     const words = q.value.trim().toLowerCase();
     drawRail();
+    const keep = (m) => (!onlyShown || !m.hidden || kept.has(m.id)) &&
+      (!onlyHidden || m.hidden) &&
+      (!words || [m.name, m.id, m.group, m.provider].some((s) => s && s.toLowerCase().includes(words)));
+    // a routing group picked on the rail: its own models alone, a tick each.
+    // It is drawn whether the group is on or off, so its members can be
+    // read and picked before the group itself is switched on
+    const picked = scopeGroups().find((x) => x.name === pick);
+    if (picked) {
+      const on = groupOn(pick);
+      const own = groupMembers(pick);
+      const rows = own.filter(keep);
+      const sec = el("section", "am-g routes open" + (on ? "" : " shut"));
+      const gh = el("div", "am-gh");
+      const head2 = el("div", "am-fold");
+      head2.append(svg(FAN, 14, 1.5), el("span", "gn", picked.label || pick),
+        el("span", "c", `${own.filter((m) => !m.hidden).length} / ${own.length}`));
+      gh.append(head2);
+      sec.append(gh);
+      const body = el("div", "am-rows");
+      if (!on) body.append(el("div", "am-note", t("This routing group is off for {agent}: switch it on in the list on the left to let {agent} go through it.", { agent: a.name })));
+      for (const m of rows) body.append(modelRow(m, true));
+      if (!rows.length) body.append(el("div", "am-none", t("No matches.")));
+      sec.append(body);
+      list.append(sec);
+      list.scrollTop = top;
+      disarm();
+      reset.disabled = !models.some((m) => m.hidden);
+      hideAll.disabled = !models.some((m) => !m.hidden && !m.inUse);
+      return;
+    }
     for (const g of groups) {
+      if (g.name === ROUTING_GROUPS) continue; // a group is picked on the rail instead
       if (pick && !words && g.name !== pick) continue;
-      const rows = g.models.filter((m) => (!onlyShown || !m.hidden || kept.has(m.id)) &&
-        (!words || [m.name, m.id, g.name].some((s) => s.toLowerCase().includes(words))));
+      const rows = g.models.filter(keep);
       if (!rows.length) continue;
       const on = g.models.filter((m) => !m.hidden).length;
       const folded = !words && !pick && shut.has(g.name);
-      const sec = el("section", "am-g" + (folded ? " shut" : "") + (g.name === ROUTING_GROUPS ? " routes" : ""));
+      const sec = el("section", "am-g" + (folded ? " shut" : ""));
       const gh = el("div", "am-gh");
       const fold = el("button", "am-fold");
       fold.type = "button";
       fold.setAttribute("aria-expanded", String(!folded));
       const tw = el("span", "tw");
       tw.append(svg(CHEV, 10, 1.7));
-      fold.append(tw, g.name === ROUTING_GROUPS ? svg(FAN, 14, 1.5) : icon(g.icon || "generic"),
-        el("span", "gn", g.name === ROUTING_GROUPS ? t(g.name) : g.name), el("span", "c", `${on} / ${g.models.length}`));
+      fold.append(tw, icon(g.icon || "generic"), el("span", "gn", g.name), el("span", "c", `${on} / ${g.models.length}`));
       fold.onclick = () => { shut.has(g.name) ? shut.delete(g.name) : shut.add(g.name); draw(); };
       const free = g.models.filter((m) => !m.inUse);
       const allOn = free.every((m) => !m.hidden);
@@ -2566,264 +2639,31 @@ async function openAgentModels(a, anchor, ev) {
       sec.append(gh);
       if (!folded) {
         const body = el("div", "am-rows");
-        for (const m of rows) {
-          const r = el("button", "am-mr" + (m.hidden ? " off" : "") + (m.inUse ? " lock" : ""));
-          r.type = "button";
-          r.setAttribute("role", "menuitemcheckbox");
-          r.setAttribute("aria-checked", String(!m.hidden));
-          r.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name }) : m.id;
-          const n = el("span", "n", m.name);
-          if (m.inUse) n.append(el("span", "am-tag", t("Current")));
-          const ck = el("span", "ck");
-          if (!m.hidden) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
-          // a routing group: its providers' icons stacked, as everywhere
-          // else, a lone one in a disc like them; a model: its maker's
-          // logo, or an empty slot, so the names line up
-          const route = g.name === ROUTING_GROUPS;
-          let lg;
-          if (route && m.icons?.length > 1) lg = stackIcon(m.icons);
-          else if (route && m.icons?.length) {
-            const d = el("span", "disc");
-            d.append(icon(m.icons[0] || "generic"));
-            lg = el("span", "ic-stack");
-            lg.append(d);
-          } else lg = m.logo && !route ? icon(m.logo) : el("span", "ic");
-          if (route && !m.icons?.length) lg.append(svg(FAN, 14, 1.5));
-          lg.classList.add("lg");
-          r.append(lg, n, el("span", "x", ctxShort(m.context)), ck);
-          if (m.inUse) r.setAttribute("aria-disabled", "true");
-          else r.onclick = () => {
-            m.hidden = !m.hidden;
-            if (m.hidden) kept.add(m.id);
-            save();
-            draw();
-          };
-          body.append(r);
-        }
+        for (const m of rows) body.append(modelRow(m, false));
         sec.append(body);
       }
       list.append(sec);
     }
     if (!list.childNodes.length) list.append(el("div", "am-none", t("No matches.")));
     list.scrollTop = top;
-    // anything else done in the list takes back a first click there
     disarm();
     reset.disabled = !models.some((m) => m.hidden);
     hideAll.disabled = !models.some((m) => !m.hidden && !m.inUse);
   };
   q.oninput = () => { list.scrollTop = 0; draw(); };
-  // ---- the routing sheet ----------------------------------------------------
-  // Which routing groups this agent may go through (settings' GroupsOn).
-  // Routing groups are off until one is switched on for the agent: an agent
-  // connects on a provider's own model and goes through a group only when
-  // the reader says so here. Which of a provider's models the agent is
-  // shown is the list's own matter — those are ticked one by one there.
-  //
-  // The sheet is drawn in the list's own place inside the pop, so switching
-  // one on brings its models into the list at once.
-  let scopeData = null, scopeLoading = null;
-  const scopeAll = () => (scopeData?.all || []);
-  const scopeUsed = () => scopeData?.used;
-  let groupsOn = new Set();
-  const groupOn = (name) => groupsOn.has(String(name).toLowerCase());
-  // drawScopeButton: how many routing groups this agent may go through, 0
-  // meaning it stays on its own provider's models
-  const drawScopeButton = () => {
-    const n = groupsOn.size;
-    scopeBtn.textContent = n ? t("Routing: {n}", { n }) : t("Routing: off");
-    scopeBtn.classList.toggle("on", n > 0);
-    scopeBtn.title = t("Which routing groups {agent} may go through", { agent: a.name });
-  };
-  // loadScope: the groups switched on for this agent and every group it may
-  // be given, read once as the list opens (the button carries the count)
-  const loadScope = async () => {
-    if (scopeData) return scopeData;
-    if (scopeLoading) return scopeLoading;
-    scopeLoading = api("agent-scope/" + encodeURIComponent(a.id)).then(async (r) => {
-      setScope(r);
-      if (scoping || agentModels === me) drawScopeButton();
-      return scopeData;
-    }).catch((err) => {
-      scopeData = null;
-      throw err;
-    }).finally(() => { scopeLoading = null; });
-    return scopeLoading;
-  };
-  // setScope takes an answer from the sheet's own endpoint as the sheet's
-  // state: the groups on, every group offered, each group's own models and
-  // this agent's switch on each of them
-  const setScope = (r) => {
-    const cur = r.scope || {};
-    scopeData = {
-      names: cur.names || [],
-      all: cur.all || scopeData?.all || [],
-      models: cur.models || scopeData?.models || [],
-      hidden: cur.hidden || [],
-      used: r.used,
-    };
-    groupsOn = new Set((cur.names || []).map((n) => String(n).toLowerCase()));
-  };
-  // the write both levels share: drawn at once, so the switch or the tick
-  // moves as it goes, then the answer redraws the list it carried
-  const writeScope = (body, drawn) => {
-    me.changed = true;
-    me.saving = me.saving.then(async () => {
-      const r = await api("agent-scope/" + encodeURIComponent(a.id), body);
-      setScope(r);
-      if (r.models) {
-        const was = new Map(models.map((m) => [m.id, m]));
-        models.splice(0, models.length, ...r.models.map((m) => was.get(m.id) || m));
-        regroup();
-      }
-      if (r.count) { me.count = a.models = r.count; fillModelsEntry(me.anchor, a); }
-      state = await api("state");
-      renderAgents();
-      drawScopeButton();
-      drawn();
-    }).catch((err) => status(err.message, "err"));
-  };
-  // switchGroup: the group's own switch — may this agent go through it
-  const switchGroup = (id, on) => {
-    const key = String(id).toLowerCase();
-    if (on) groupsOn.add(key);
-    else groupsOn.delete(key);
-    drawSheet();
-    drawScopeButton();
-    writeScope({ id, on }, draw);
-  };
-  // tickModel: one of a group's models, ticked or unticked for this agent
-  // alone (the same switch the list itself writes), the group untouched
-  const tickModel = (groupId, m, show) => {
-    const g = (scopeData?.models || []).find((x) => x.id === groupId);
-    if (!g) return;
-    // the whole hidden set the answer carried, with this one changed: a
-    // model another part of the list had taken out stays out
-    const hidden = new Set(scopeData?.hidden || []);
-    if (show) hidden.delete(m.id);
-    else hidden.add(m.id);
-    for (const x of g.models) if (x.id === m.id) x.hidden = !show;
-    drawSheet();
-    writeScope({ id: groupId, on: groupOn(groupId), hidden: [...hidden] }, draw);
-  };
-  const drawSheet = () => {
-    const top = list.scrollTop;
-    list.replaceChildren();
-    const sheet = el("div", "am-sheet");
-    const groups = scopeAll().filter((s) => s.kind === "group")
-      .sort((x, y) => x.name.localeCompare(y.name, undefined, { sensitivity: "base" }));
-    const sh = el("div", "am-sh");
-    const words = el("span");
-    sh.append(words, el("span", "sp"),
-      el("span", "c", t("{n} of {all} on", { n: groupsOn.size, all: groups.length })));
-    words.append(t("Routing groups"));
-    sheet.append(sh);
-    sheet.append(el("div", "am-d", t("{agent} goes on its own provider's models. Switch a routing group on and its models join {agent}'s list.", { agent: a.name })));
-    const body = el("div", "am-rows am-srows");
-    // a group's own models, as the answer carried them, by group id
-    const members = new Map((scopeData?.models || []).map((g) => [g.id, g.models]));
-    for (const s of groups) {
-      const on = groupOn(s.name);
-      const r = el("button", "am-mr am-sr sw" + (on ? "" : " off"));
-      r.type = "button";
-      r.setAttribute("role", "switch");
-      r.setAttribute("aria-checked", String(on));
-      r.title = s.label && s.label !== s.name ? s.name + " · " + s.label : s.name;
-      const name = el("span", "n", s.label || s.name);
-      if (s.label && s.label !== s.name) name.append(el("span", "am-id", s.name));
-      const sw = el("span", "lib-switch" + (on ? " on" : ""));
-      sw.append(el("i"));
-      r.append(name, el("span", "am-sc-n", t("{n} models", { n: String(s.entries) })), sw);
-      r.onclick = () => switchGroup(s.name, !on);
-      body.append(r);
-      // and, once it is on, its own models: one tick each, the same switch
-      // the list itself writes, so taking one out hides it from this agent
-      // alone — the group still routes through it
-      const own = on ? members.get(s.name) || [] : [];
-      if (own.length) {
-        const box = el("div", "am-rows am-sown");
-        for (const m of own) {
-          const mr = el("button", "am-mr am-mown" + (m.hidden ? " off" : "") + (m.inUse ? " lock" : ""));
-          mr.type = "button";
-          mr.setAttribute("role", "menuitemcheckbox");
-          mr.setAttribute("aria-checked", String(!m.hidden));
-          mr.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name }) : m.id;
-          const mn = el("span", "n", m.name);
-          if (m.inUse) mn.append(el("span", "am-tag", t("Current")));
-          const ck = el("span", "ck");
-          if (!m.hidden) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
-          mr.append(el("span", "lg", icon(m.icon || "generic")), mn, ck);
-          if (m.inUse) mr.setAttribute("aria-disabled", "true");
-          // a click flips it: shown becomes hidden and the other way round
-          else mr.onclick = () => tickModel(s.name, m, m.hidden);
-          box.append(mr);
-        }
-        body.append(box);
-      }
-    }
-    if (!groups.length) body.append(el("div", "am-none", t("No routing groups.")));
-    sheet.append(body);
-    list.append(sheet);
-    list.scrollTop = top;
-  };
-  scopeBtn.onclick = async (e) => {
-    e.stopPropagation();
-    if (ordering) view(false); // no order to drag in the sheet
-    scoping = !scoping;
-    box.classList.toggle("range", scoping);
-    if (!scoping) { drawScopeButton(); draw(); return; }
-    scopeBtn.disabled = true;
-    try {
-      await loadScope();
-    } catch (err) {
-      status(err.message, "err");
-      scoping = false;
-      box.classList.remove("range");
-      draw();
-      return;
-    }
-    if (agentModels !== me) return; // the list was closed while it loaded
-    scopeBtn.disabled = false;
-    drawScopeButton();
-    draw();
-  };
-  drawScopeButton();
-  const view = (shown, order = false) => {
+  const view = (shown, hiddenOnly = false) => {
     onlyShown = shown;
-    ordering = order;
-    scoping = false; // the range sheet is the list's own place, not a view of it
-    picked = null;
-    box.classList.remove("range");
-    drawScopeButton();
+    onlyHidden = hiddenOnly;
     kept = new Set();
-    segAll.classList.toggle("on", !shown && !order);
-    segOn.classList.toggle("on", shown && !order);
-    segOrder.classList.toggle("on", order);
-    // ordering is of the whole list: no search, no provider picked, and the
-    // foot puts magpie's own order back rather than showing or hiding
-    box.classList.toggle("ordering", order);
-    // Codex's /model, in WSL too, lists them as handed (#855); another
-    // agent is handed them in it, and one that sorts its own menu may sort
-    // them again
-    if (order) foot.replaceChildren(footNote, el("span", "sp"), unorder);
-    else foot.replaceChildren(footNote, el("span", "sp"), hideAll, el("span", "am-dot", "·"), reset);
+    segAll.classList.toggle("on", !shown && !hiddenOnly);
+    segOn.classList.toggle("on", shown && !hiddenOnly);
+    segOff.classList.toggle("on", hiddenOnly);
     list.scrollTop = 0;
     draw();
   };
   segAll.onclick = () => view(false);
   segOn.onclick = () => view(true);
-  segOrder.onclick = () => view(false, true);
-  unorder.onclick = async () => {
-    unorder.disabled = true;
-    const r = await saveOrder([]);
-    ordered = false;
-    // magpie's own order, as the list comes back
-    if (r?.models) {
-      const was = new Map(models.map((m) => [m.id, m]));
-      models.splice(0, models.length, ...r.models.map((m) => was.get(m.id) || m));
-      regroup();
-    }
-    draw();
-  };
+  segOff.onclick = () => view(false, true);
   // every model of every provider at once is a lot to pick again by hand,
   // and with one provider picked on the left it read as that one's (#920):
   // a first click says how many, of every provider, and a second does it
@@ -2852,10 +2692,10 @@ async function openAgentModels(a, anchor, ev) {
     }
     footNote.hidden = false;
   };
-  twice(reset, () => t("Show {n} hidden, of every provider? Click again", { n: models.filter((m) => m.hidden).length }), () => {
+  twice(reset, () => t("Show {n} hidden — every provider's, the agent's own and every routing group? Click again", { n: models.filter((m) => m.hidden).length }), () => {
     for (const m of models) m.hidden = false;
   });
-  twice(hideAll, () => t("Hide {n}, of every provider? Click again", { n: models.filter((m) => !m.inUse && !m.hidden).length }), () => {
+  twice(hideAll, () => t("Hide {n} — every provider's, the agent's own and every routing group? Click again", { n: models.filter((m) => !m.inUse && !m.hidden).length }), () => {
     for (const m of models) if (!m.inUse && !m.hidden) { m.hidden = true; kept.add(m.id); }
   });
   draw();

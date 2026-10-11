@@ -221,6 +221,10 @@ type scopeGroupJSON struct {
 type scopeModelJSON struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Provider is whose model it is, said beside the name: a group's members
+	// often carry the same name from several providers (claude's and
+	// copilot's Claude Opus 5.5), and the rows would otherwise read alike
+	Provider string `json:"provider,omitempty"`
 	// Hidden: this agent's lists don't show it (settings.HiddenModels)
 	Hidden bool `json:"hidden,omitempty"`
 	// InUse: the agent is set to it, so it stays whatever is asked
@@ -274,7 +278,7 @@ func agentScope(a *agent.Agent) scopeJSON {
 			if name == "" {
 				name = e.Model
 			}
-			m := scopeModelJSON{ID: e.ID, Name: name, Hidden: off[e.ID], InUse: usedIn(vals, e), Icon: e.Provider.Icon}
+			m := scopeModelJSON{ID: e.ID, Name: name, Provider: e.Provider.Name, Hidden: off[e.ID], InUse: usedIn(vals, e), Icon: e.Provider.Icon}
 			g.Models = append(g.Models, m)
 		}
 		models = append(models, g)

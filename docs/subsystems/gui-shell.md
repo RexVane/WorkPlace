@@ -193,37 +193,48 @@ ties. Family changes keep a matching style where possible, otherwise the
 nearest regular face; named variable instances are offered without arbitrary
 axis controls.
 
-### An agent's routing sheet
+### An agent's routing groups, and its models
 
-The model list under an agent's name on the Agents page carries a **Routing**
-button (`GET /api/agent-scope/{id}`), which opens a sheet of every routing
-group the catalog has, **in the two steps the reader works in**: which groups
-this agent may go through, and then, under each one that is on, which of
-that group's own models it is shown.
-
-A group is drawn as a **switch** (`role="switch"`, the app's own
-`.lib-switch` from
+The model list under an agent's name on the Agents page is read in the two
+steps the reader works in, and the left rail is where both live. Its own
+heading lists **every routing group the catalog has**, each with a **switch**
+(`role="switch"`, the app's own `.lib-switch` from
 [`library.css`](../../internal/gui/assets/library.css)); switching one on or
 off writes that agent's own entry in `settings.GroupsOn` (`POST
-/api/agent-scope/{id}` with the group's id and the wanted state). A group
-that is on opens under its switch, with one row per model it is made of —
-each a tick writing `settings.HiddenModels` for this agent alone (`provider.
-GroupMembers` is where the sheet gets them). Ticking one off hides that model
-from this agent's lists while the group still routes through it; every other
-agent keeps it. The answer carries the whole hidden set back, so ticking one
-never puts another back.
+/api/agent-scope/{id}` with the group's id and the wanted state). Picking a
+group in the rail shows **that group's own models** on the right, one row
+each — a tick writing `settings.HiddenModels` for this agent alone
+(`provider.GroupMembers` is where the answer gets them). Ticking one off
+hides that model from this agent's lists while the group still routes through
+it; every other agent keeps it. The answer carries the whole hidden set back,
+so ticking one never puts another back. A group's models are readable whether
+it is on or off, so they can be picked before the group itself is switched
+on; while it is off the list says so and where to turn it on. Each row names
+**whose** model it is (`Claude Code: Claude Opus 5.5`, `Copilot: Claude Opus
+5.5`) — a group's members often carry the same name from several providers,
+and the source is what tells them apart. The rail's second heading is the
+providers, drawn as before.
 
-Routing groups are **off until one is switched on for that agent**: an agent
-connects on a provider's own model, and a group added later is off for it too
-until it is turned on. Every provider's own models are untouched either way.
-The button says how many groups are on (`Routing: 2`) or that none is
-(`Routing: off`). The Agents page's lead line carries one button, **Turn
-routing groups off everywhere** (`POST /api/agents/routing-groups-off` in
+There is **no separate sheet and no Routing button**: the rail's own switch is
+the routing control (`GET /api/agent-scope/{id}` is read as the list opens,
+which is what fills its headings). Routing groups are **off until one is
+switched on for that agent**: an agent connects on a provider's own model, and
+a group added later is off for it too until it is turned on. Every provider's
+own models are untouched either way. The Agents page's lead line carries one
+button, **Turn routing groups off everywhere** (`POST
+/api/agents/routing-groups-off` in
 [`agent_models.go`](../../internal/gui/agent_models.go)), drawn while some
-agent has a group switched on: it clears them all. The sheet is drawn in the
-list's own place inside the pop rather than as a modal over the page.
-`TestAgentScopeAPI`, `TestRoutingGroupsOffEverywhere`,
-`agent-routing-sheet.test.cjs` and `routing-groups-off.test.cjs` cover it.
+agent has a group switched on: it clears them all. `TestAgentScopeAPI`,
+`TestRoutingGroupsOffEverywhere`, `agent-routing-sheet.test.cjs`,
+`agent-models.test.cjs` and `routing-groups-off.test.cjs` cover it.
+
+The list's own filter is **All / Shown / Hidden** (`All` every model of the
+picked source, `Shown` the ones the agent is shown, `Hidden` the ones it is
+not) — the drag-to-order view and the Order segment it sat behind are gone;
+magpie hands the agent its models in its own order. The foot's **Hide all**
+and **Show all** name what they will do across every source — the providers',
+the agent's own and every routing group's — on the first click, and do it on
+the second.
 
 ### Shared UI rules
 
@@ -250,7 +261,7 @@ waits for `show` to accept navigation before creating its draft.
 ```sh
 go test -tags nogui ./internal/gui
 go test -tags nogui ./internal/gui -run '^TestAgentScopeAPI$'
-node --test internal/gui/tests/agent-routing-sheet.test.cjs internal/gui/tests/routing-groups-off.test.cjs
+node --test internal/gui/tests/agent-routing-sheet.test.cjs internal/gui/tests/agent-models.test.cjs internal/gui/tests/routing-groups-off.test.cjs
 go test -v ./internal/fonts         # native discovery on each desktop OS
 make test-ui                      # every internal/gui/tests/*.test.cjs, Chromium and WebKit
 BROWSER=webkit node --test internal/gui/tests/click-scroll.test.cjs
