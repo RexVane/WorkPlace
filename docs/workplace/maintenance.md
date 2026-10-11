@@ -71,6 +71,12 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 
 根部 `magpie-dev*.exe` 是旧开发启动器的输出，开发脚本会按需重建；整理时可在确认没有进程使用它们后归档。根部 `.syso` 是 Go 在 Windows 链接资源的约定位置，由构建脚本生成并忽略。
 
+## 行尾约定
+
+根部 `.gitattributes` 声明 `* text=auto eol=lf`：文本文件在索引与工作区都存成 LF，`*.bat`、`*.cmd` 例外（cmd.exe 读不了纯 LF 的批处理）。这样在一台机器上改一行，不会在另一台机器上读成整文件改动——界面源码（`internal/gui/assets/*`）改得最多，也是最早出现这种漂移的（`i18n.js` 曾整文件 diff）。
+
+本机 `core.autocrlf` 为 `true`，若不声明属性，签出会写成 CRLF 并在每次编辑时提示「LF will be replaced by CRLF」；有了这份属性就由它决定，且各平台一致。索引里已经是 LF，所以加这份文件不触发重写；工作区里此前为 CRLF 的文件会在下次签出时变成 LF。
+
 ## 验证与提交
 
 代码检查和浏览器回归方式分别见[代码标准](../code-standards.md)与[GUI 测试说明](../../internal/gui/tests/README.md)。字体、主题、布局和品牌改动按各自行为验证并分开提交；仅移动图片或修改文档时，检查本地引用和构建入口即可。

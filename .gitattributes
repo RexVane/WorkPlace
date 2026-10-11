@@ -1,0 +1,14 @@
+# Line endings. Every text file is stored and checked out with LF, so an edit
+# made on one machine never reads as a whole-file change on another — the
+# interface's own sources (internal/gui/assets/*) are edited most and were the
+# first to drift (i18n.js once came back as an all-lines diff).
+#
+# core.autocrlf would otherwise check them out as CRLF on Windows and warn
+# "LF will be replaced by CRLF" on every edit. This file decides instead, and
+# it is the same on every platform.
+* text=auto eol=lf
+
+# cmd.exe mis-reads a batch file whose lines end in a bare LF, so these stay
+# CRLF wherever they are written.
+*.bat text eol=crlf
+*.cmd text eol=crlf

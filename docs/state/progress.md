@@ -274,3 +274,9 @@
   - 真实实例（网关 3425 / 预览 3437，源码实例重启后）：左栏「路由组 / 供应商」两段、16 个开关；点 `Claude Opus 5.5` → 右栏 `Claude Code: Claude Opus 5.5`、`Copilot: Claude Opus 5.5`；开开关 → 该组进列表；勾掉一条 → 该条隐藏、组仍开着、另一家不受影响；「全部隐藏」确认文字如上述。
 - 影响文件：`internal/gui/assets/app.js`（模型列表整段重写：左栏分段+开关、成员右栏、筛选三档、去掉排序与弹窗）、`internal/gui/assets/app.css`（`.am-rail` 加宽到 208px、`.am-railhead`、`.am-ri` 内开关、`.am-by` 来源在前、`.am-note`、成员行图标槽）、`internal/gui/assets/i18n.js`（新提示 1 条 + 确认文案 2 条 × 4 语）、`internal/gui/agent_models.go`（`scopeModelJSON.Provider`）、`internal/gui/tests/agent-routing-sheet.test.cjs`（重写）、`internal/gui/tests/agent-models.test.cjs`、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
 - 下一步：等用户在窗口里试左栏开关是否合意；`.gitattributes`（`text eol=lf`，防 i18n.js 整文件 diff）仍未定。
+
+## 2026-10-11 16:10 +08:00 | deepseek-v4.1-flash | 加 .gitattributes：文本文件行尾统一为 LF
+- 改了什么（用户问「要吧」）：根部新增 `.gitattributes`，`* text=auto eol=lf`，`*.bat`/`*.cmd` 例外（cmd.exe 读不了纯 LF 的批处理）。起因是 `i18n.js` 曾整文件 diff（编码从 UTF-16LE+CRLF 变 UTF-8+LF），加上本机 `core.autocrlf=true`，每次编辑界面源码都会提示「LF will be replaced by CRLF」。
+- 影响：索引里本就是 LF（0 个 CRLF blob），所以**没有触发全库重写**；`git add --renormalize .` 零改动。顺手把工作区里 7 个行尾混合的文件（`.dockerignore`、`Makefile`、`README.md`、`README.zh-CN.md`、`build/windows/winres.json`、`internal/gui/assets/i18n.js`、`internal/gui/tests/brand.test.cjs`）在磁盘上统一成 LF——`git hash-object --path` 与 HEAD 逐一比对确认内容零改动。
+- 影响文件：`.gitattributes`（新）、`docs/workplace/maintenance.md`（新增「行尾约定」一节）。
+- 备注：`git status` 一度把这 7 个文件报成已修改，是 stat 缓存陈旧；`git diff` 为空、blob 哈希一致，`git add` 刷新后即消失。
