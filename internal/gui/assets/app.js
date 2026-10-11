@@ -2640,8 +2640,7 @@ async function openAgentModels(a, anchor, ev) {
     if (scopeData) return scopeData;
     if (scopeLoading) return scopeLoading;
     scopeLoading = api("agent-scope/" + encodeURIComponent(a.id)).then(async (r) => {
-      scopeData = { names: r.scope?.names || [], all: r.scope?.all || [], used: r.used };
-      groupsOn = new Set((r.scope?.names || []).map((n) => String(n).toLowerCase()));
+      setScope(r);
       if (scoping || agentModels === me) drawScopeButton();
       return scopeData;
     }).catch((err) => {
@@ -2649,6 +2648,62 @@ async function openAgentModels(a, anchor, ev) {
       throw err;
     }).finally(() => { scopeLoading = null; });
     return scopeLoading;
+  };
+  // setScope takes an answer from the sheet's own endpoint as the sheet's
+  // state: the groups on, every group offered, each group's own models and
+  // this agent's switch on each of them
+  const setScope = (r) => {
+    const cur = r.scope || {};
+    scopeData = {
+      names: cur.names || [],
+      all: cur.all || scopeData?.all || [],
+      models: cur.models || scopeData?.models || [],
+      hidden: cur.hidden || [],
+      used: r.used,
+    };
+    groupsOn = new Set((cur.names || []).map((n) => String(n).toLowerCase()));
+  };
+  // the write both levels share: drawn at once, so the switch or the tick
+  // moves as it goes, then the answer redraws the list it carried
+  const writeScope = (body, drawn) => {
+    me.changed = true;
+    me.saving = me.saving.then(async () => {
+      const r = await api("agent-scope/" + encodeURIComponent(a.id), body);
+      setScope(r);
+      if (r.models) {
+        const was = new Map(models.map((m) => [m.id, m]));
+        models.splice(0, models.length, ...r.models.map((m) => was.get(m.id) || m));
+        regroup();
+      }
+      if (r.count) { me.count = a.models = r.count; fillModelsEntry(me.anchor, a); }
+      state = await api("state");
+      renderAgents();
+      drawScopeButton();
+      drawn();
+    }).catch((err) => status(err.message, "err"));
+  };
+  // switchGroup: the group's own switch — may this agent go through it
+  const switchGroup = (id, on) => {
+    const key = String(id).toLowerCase();
+    if (on) groupsOn.add(key);
+    else groupsOn.delete(key);
+    drawSheet();
+    drawScopeButton();
+    writeScope({ id, on }, draw);
+  };
+  // tickModel: one of a group's models, ticked or unticked for this agent
+  // alone (the same switch the list itself writes), the group untouched
+  const tickModel = (groupId, m, show) => {
+    const g = (scopeData?.models || []).find((x) => x.id === groupId);
+    if (!g) return;
+    // the whole hidden set the answer carried, with this one changed: a
+    // model another part of the list had taken out stays out
+    const hidden = new Set(scopeData?.hidden || []);
+    if (show) hidden.delete(m.id);
+    else hidden.add(m.id);
+    for (const x of g.models) if (x.id === m.id) x.hidden = !show;
+    drawSheet();
+    writeScope({ id: groupId, on: groupOn(groupId), hidden: [...hidden] }, draw);
   };
   const drawSheet = () => {
     const top = list.scrollTop;
@@ -2664,6 +2719,8 @@ async function openAgentModels(a, anchor, ev) {
     sheet.append(sh);
     sheet.append(el("div", "am-d", t("{agent} goes on its own provider's models. Switch a routing group on and its models join {agent}'s list.", { agent: a.name })));
     const body = el("div", "am-rows am-srows");
+    // a group's own models, as the answer carried them, by group id
+    const members = new Map((scopeData?.models || []).map((g) => [g.id, g.models]));
     for (const s of groups) {
       const on = groupOn(s.name);
       const r = el("button", "am-mr am-sr sw" + (on ? "" : " off"));
@@ -2676,32 +2733,32 @@ async function openAgentModels(a, anchor, ev) {
       const sw = el("span", "lib-switch" + (on ? " on" : ""));
       sw.append(el("i"));
       r.append(name, el("span", "am-sc-n", t("{n} models", { n: String(s.entries) })), sw);
-      r.onclick = () => {
-        const key = s.name.toLowerCase();
-        const next = !on;
-        // drawn at once, so the switch slides as the write goes
-        if (next) groupsOn.add(key);
-        else groupsOn.delete(key);
-        drawSheet();
-        drawScopeButton();
-        me.changed = true;
-        me.saving = me.saving.then(async () => {
-          const r2 = await api("agent-scope/" + encodeURIComponent(a.id), { id: s.name, on: next });
-          scopeData = { names: r2.scope?.names || [], all: r2.scope?.all || scopeData.all, used: r2.used };
-          groupsOn = new Set((r2.scope?.names || []).map((n) => String(n).toLowerCase()));
-          if (r2.models) {
-            const was = new Map(models.map((m) => [m.id, m]));
-            models.splice(0, models.length, ...r2.models.map((m) => was.get(m.id) || m));
-            regroup();
-          }
-          if (r2.count) { me.count = a.models = r2.count; fillModelsEntry(me.anchor, a); }
-          state = await api("state");
-          renderAgents();
-          drawScopeButton();
-          draw();
-        }).catch((err) => status(err.message, "err"));
-      };
+      r.onclick = () => switchGroup(s.name, !on);
       body.append(r);
+      // and, once it is on, its own models: one tick each, the same switch
+      // the list itself writes, so taking one out hides it from this agent
+      // alone — the group still routes through it
+      const own = on ? members.get(s.name) || [] : [];
+      if (own.length) {
+        const box = el("div", "am-rows am-sown");
+        for (const m of own) {
+          const mr = el("button", "am-mr am-mown" + (m.hidden ? " off" : "") + (m.inUse ? " lock" : ""));
+          mr.type = "button";
+          mr.setAttribute("role", "menuitemcheckbox");
+          mr.setAttribute("aria-checked", String(!m.hidden));
+          mr.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name }) : m.id;
+          const mn = el("span", "n", m.name);
+          if (m.inUse) mn.append(el("span", "am-tag", t("Current")));
+          const ck = el("span", "ck");
+          if (!m.hidden) ck.append(svg("m3.5 8.5 3 3 6-7", 12, 1.9));
+          mr.append(el("span", "lg", icon(m.icon || "generic")), mn, ck);
+          if (m.inUse) mr.setAttribute("aria-disabled", "true");
+          // a click flips it: shown becomes hidden and the other way round
+          else mr.onclick = () => tickModel(s.name, m, m.hidden);
+          box.append(mr);
+        }
+        body.append(box);
+      }
     }
     if (!groups.length) body.append(el("div", "am-none", t("No routing groups.")));
     sheet.append(body);

@@ -41,9 +41,11 @@ func TestAgentScopeAPI(t *testing.T) {
 	agentModelsAPI(mux)
 	type answer struct {
 		Scope struct {
-			Agent string
-			Names []string
-			All   []provider.ScopeName
+			Agent  string
+			Names  []string
+			All    []provider.ScopeName
+			Models []scopeGroupJSON
+			Hidden []string
 		}
 		Used struct {
 			Shown, Catalog, Names int
@@ -101,6 +103,40 @@ func TestAgentScopeAPI(t *testing.T) {
 	if !slices.Equal(settings.Load().GroupsOn["codex"], []string{"group/fast"}) {
 		t.Fatalf("saved %v", settings.Load().GroupsOn)
 	}
+	// and the sheet carries that group's own models, so the reader can take
+	// one of them out of this agent's list alone
+	seg := groupSegment(got.Scope.Models, "group/fast")
+	if len(seg) != 1 || seg[0].ID != "relay/m1" || seg[0].Hidden {
+		t.Fatalf("the group's own models: %+v", got.Scope.Models)
+	}
+	got = call("POST", "codex", `{"id":"group/fast","on":true,"hidden":["relay/m1"]}`)
+	if seg := groupSegment(got.Scope.Models, "group/fast"); len(seg) != 1 || !seg[0].Hidden {
+		t.Fatalf("the tick under the group: %+v", got.Scope.Models)
+	}
+	if !slices.Contains(got.Scope.Hidden, "relay/m1") {
+		t.Fatalf("the hidden set: %v", got.Scope.Hidden)
+	}
+	// the group stays on, and the model is marked hidden in this agent's list
+	// (the list keeps the row, dimmed, as its own ticks do)
+	if !slices.Equal(got.Scope.Names, []string{"group/fast"}) {
+		t.Fatalf("the group went with the tick: %v", got.Scope.Names)
+	}
+	if ids := modelIDs(got.Models); !slices.Contains(ids, "relay/m1") {
+		t.Fatalf("the model vanished from the list instead of dimming: %v", ids)
+	}
+	if shown, hidden := provider.CatalogFor("codex"); slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.ID == "relay/m1" }) ||
+		!slices.ContainsFunc(hidden, func(e provider.Entry) bool { return e.ID == "relay/m1" }) {
+		t.Fatalf("the ticked-off model is still shown (%d shown, %d kept)", len(shown), len(hidden))
+	}
+	// while every other agent keeps it (the tick is this agent's alone)
+	if shown, _ := provider.CatalogFor("claude"); !slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.ID == "relay/m1" }) {
+		t.Fatalf("another agent lost the model: %v", shown)
+	}
+	// and putting it back leaves the group as it is
+	got = call("POST", "codex", `{"id":"group/fast","on":true,"hidden":[]}`)
+	if seg := groupSegment(got.Scope.Models, "group/fast"); len(seg) != 1 || seg[0].Hidden {
+		t.Fatalf("the model put back: %+v", got.Scope.Models)
+	}
 	// the switch is this agent's alone
 	if err := provider.SetGroupOn("claude", "group/slow", true); err != nil {
 		t.Fatal(err)
@@ -147,4 +183,15 @@ func modelIDs(ms []agentModelJSON) []string {
 		out = append(out, m.ID)
 	}
 	return out
+}
+
+// groupSegment is one group's own models as the sheet carried them, by the
+// group's catalog id; nil when the sheet has no such segment.
+func groupSegment(all []scopeGroupJSON, id string) []scopeModelJSON {
+	for _, g := range all {
+		if g.ID == id {
+			return g.Models
+		}
+	}
+	return nil
 }

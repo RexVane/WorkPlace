@@ -248,6 +248,32 @@ func GroupOn(agent, id string) bool {
 	return GroupsOn(agent)[id]
 }
 
+// GroupMembers are the catalog entries a routing group is made of, by the
+// group's catalog id ("group/<id>"), in the order it names them. It is what
+// the Agents page lists under a group's switch, so the reader can take one
+// of its models out of that agent's list alone.
+func GroupMembers(id string) []Entry {
+	_, ms, ok := FindGroup(id)
+	if !ok {
+		return nil
+	}
+	byID := map[string]Entry{}
+	for _, e := range Catalog() {
+		byID[e.ID] = e
+	}
+	out := make([]Entry, 0, len(ms))
+	seen := map[string]bool{}
+	for _, m := range ms {
+		e, ok := byID[m.Provider.ID+"/"+m.Model]
+		if !ok || seen[e.ID] {
+			continue
+		}
+		seen[e.ID] = true
+		out = append(out, e)
+	}
+	return out
+}
+
 // SetGroupOn turns one routing group on or off for agent alone. The switch
 // is per agent: turning a group on for one leaves every other agent as it
 // was, and an agent with no groups of its own still has none.

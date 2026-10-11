@@ -1,8 +1,9 @@
 // Run with Node's test runner and Playwright on the module path; see README.md.
-// The routing sheet of an agent's model list: routing groups are off until
-// one is switched on for that agent, so an agent goes on its own provider's
-// models and through a group only when the reader says so. The sheet is the
-// list's own place inside the pop, and the switch slides as the write goes.
+// The routing sheet of an agent's model list, in the two steps the reader
+// works in: switch a routing group on for the agent, and then, under it,
+// tick which of that group's models the agent is shown. Routing groups are
+// off until one is switched on; a model ticked off is hidden from this agent
+// alone, while the group still routes through it.
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
@@ -11,24 +12,37 @@ const { chromium, webkit } = require("playwright");
 
 const assets = path.resolve(__dirname, "../assets");
 
-// the catalog: one provider's models, and two routing groups
+// the catalog: a provider's own models, and a group made of two of them
 const full = () => [
-  { id: "group/fast", name: "Fast", group: "Routing groups", icons: ["openai"], candidates: ["group/fast"] },
-  { id: "group/slow", name: "Slow", group: "Routing groups", icons: ["openai"], candidates: ["group/slow"] },
   { id: "relay/m1", name: "M1", group: "Relay", icon: "openai", candidates: ["relay"] },
   { id: "relay/m2", name: "M2", group: "Relay", icon: "openai", candidates: ["relay"] },
+  { id: "relay/m3", name: "M3", group: "Relay", icon: "openai", candidates: ["relay"] },
 ];
 
 function fixture(lang) {
-  // the groups switched on for this agent, as settings' GroupsOn holds them
+  // what the sheet holds: the groups on, and the whole hidden set
   let on = [];
+  let hidden = [];
   const all = [
-    { name: "group/fast", kind: "group", label: "Fast", icon: "openai", entries: 1 },
-    { name: "group/slow", kind: "group", label: "Slow", icon: "openai", entries: 2 },
+    { name: "group/fast", kind: "group", label: "Fast", icon: "openai", entries: 2 },
+    { name: "group/slow", kind: "group", label: "Slow", icon: "openai", entries: 1 },
   ];
-  // what the agent's list is drawn from: its provider's models, plus the
-  // models of the groups switched on
-  const listed = () => full().filter((m) => m.group !== "Routing groups" || on.includes(m.id));
+  const members = {
+    "group/fast": [
+      { id: "relay/m1", name: "M1", icon: "openai" },
+      { id: "relay/m2", name: "M2", icon: "openai" },
+    ],
+    "group/slow": [{ id: "relay/m3", name: "M3", icon: "openai" }],
+  };
+  const hiddenSet = () => new Set(hidden);
+  // the models the agent's list holds: its provider's, plus the groups it
+  // goes through — less what is hidden
+  const listed = () => {
+    const off = hiddenSet();
+    const out = full().filter((m) => !off.has(m.id));
+    for (const g of on) out.push({ id: g, name: g === "group/fast" ? "Fast" : "Slow", group: "Routing groups", icons: ["openai"], candidates: [g] });
+    return out;
+  };
   const count = () => ({ shown: listed().length, listed: listed().length, by: [] });
   const state = () => ({
     agents: [{
@@ -38,7 +52,14 @@ function fixture(lang) {
     }],
     profiles: [], settings: { lang, theme: "light" },
   });
-  const scope = () => ({ scope: { agent: "codex", names: on, all }, used: { shown: listed().length, catalog: full().length, names: on.length } });
+  const off = hiddenSet();
+  const scope = () => ({
+    scope: {
+      agent: "codex", names: on, all, hidden,
+      models: all.map((g) => ({ id: g.name, models: (members[g.name] || []).map((m) => ({ ...m, hidden: hiddenSet().has(m.id) })) })),
+    },
+    used: { shown: listed().length, catalog: full().length + all.length, names: on.length },
+  });
   async function serve(route) {
     const req = route.request();
     const url = new URL(req.url());
@@ -48,8 +69,10 @@ function fixture(lang) {
     if (url.pathname === "/api/state") return json(state());
     if (url.pathname === "/api/agent-scope/codex") {
       if (req.method() === "POST") {
-        const { id, on: want } = req.postDataJSON();
-        on = want ? [...new Set([...on, id])] : on.filter((g) => g !== id);
+        const body = req.postDataJSON();
+        if (body.hidden) hidden = body.hidden;
+        if (body.on) on = [...new Set([...on, body.id])];
+        else on = on.filter((g) => g !== body.id);
         return json({ ...scope(), models: listed(), count: count() });
       }
       return json(scope());
@@ -62,7 +85,7 @@ function fixture(lang) {
     const contentType = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" }[path.extname(file)];
     await route.fulfill({ body: await fs.readFile(file), contentType });
   }
-  return { serve, on: () => on };
+  return { serve, on: () => on, hidden: () => hidden };
 }
 
 const W = {
@@ -70,22 +93,20 @@ const W = {
     off: "Routing: off", one: "Routing: 1", two: "Routing: 2",
     head: (n, all) => `${n} of ${all} on`,
     note: /^Codex goes on its own provider's models/,
-    models: (n) => `${n} models`,
   },
   zh: {
     off: "路由：全关", one: "路由：1", two: "路由：2",
     head: (n, all) => `${n} / ${all} 已开`,
     note: /^Codex 走它自己供应商的模型/,
-    models: (n) => `${n} 个模型`,
   },
 };
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
   for (const lang of ["en", "zh"]) {
-    test(`${engine} ${lang}: an agent's routing sheet`, async (t) => {
+    test(`${engine} ${lang}: an agent's routing sheet, group then its models`, async (t) => {
       const w = W[lang];
       const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: "chromium" }));
-      const page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
+      const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
       page.setDefaultTimeout(5000);
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
@@ -106,58 +127,67 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await pop.waitFor();
       await page.waitForFunction(() => document.getAnimations().length === 0);
 
-      // routing is off: the agent's list has its provider's models alone
+      // step one: no group is on, so no group has models under it
       const scopeBtn = pop.locator(".am-scope");
       assert.equal(await scopeBtn.innerText(), w.off);
-      assert.equal(await pop.locator(".am-mr:not(.am-sr)").count(), 2);
-
-      // the sheet: every routing group, all switched off, in the list's place
       await scopeBtn.click();
       const sheet = pop.locator(".am-sheet");
       await sheet.waitFor();
       assert.match(await sheet.locator(".am-d").innerText(), w.note);
       assert.equal(await sheet.locator(".am-sh .c").innerText(), w.head(0, 2));
       assert.equal(await sheet.locator(".am-sr").count(), 2);
-      assert.equal(await sheet.locator('.am-sr[aria-checked="false"]').count(), 2);
-      assert.equal(await sheet.locator(".am-sr .lib-switch.on").count(), 0);
+      assert.equal(await sheet.locator(".am-sown").count(), 0, "no group is on, so none is open");
       assert.equal(await pop.locator(".am-search").isVisible(), false, "the sheet takes the list's tools");
-      // a group's row says how many models it brings
-      const slow = sheet.locator(".am-sr", { hasText: "Slow" }).first();
-      assert.equal(await slow.locator(".am-sc-n").innerText(), w.models(2));
 
-      // switching one on saves at once and brings its models into the list
+      // switching one on opens it, with its own models under the switch
       await sheet.locator(".am-sr", { hasText: "Fast" }).first().click();
       await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.one);
       assert.deepEqual(fx.on(), ["group/fast"]);
-      assert.equal(await sheet.locator(".am-sh .c").innerText(), w.head(1, 2));
-      assert.equal(await sheet.locator(".am-sr .lib-switch.on").count(), 1);
-      assert.equal(await sheet.locator('.am-sr[aria-checked="true"]').count(), 1);
+      assert.equal(await sheet.locator(".am-sown").count(), 1);
+      const own = sheet.locator(".am-sown .am-mown");
+      assert.equal(await own.count(), 2, "Fast is made of two models");
+      assert.deepEqual(await own.locator(".n").allInnerTexts(), ["M1", "M2"]);
+      assert.equal(await sheet.locator('.am-mown[aria-checked="true"]').count(), 2);
 
-      // closing it: the group's models are in the list now
+      // step two: ticking one of the group's models hides it from this
+      // agent alone — the group stays on, and the other agent's list is
+      // untouched (the fixture holds one agent, so only this is checked)
+      await own.first().click();
+      await page.waitForTimeout(200);
+      assert.deepEqual(fx.hidden(), ["relay/m1"], "the ticked-off model is the hidden one");
+      assert.deepEqual(fx.on(), ["group/fast"], "the group is still on");
+      // the sheet was drawn again, so the rows are looked up afresh
+      assert.equal(await pop.locator('.am-sown .am-mown[aria-checked="false"]').count(), 1);
+      assert(await pop.locator(".am-sown .am-mown").first().evaluate((e) => e.classList.contains("off")));
+
+      // closing it: the group row and its models are in the list, less the
+      // one ticked off (the fixture holds a single agent, so its own
+      // provider's M3 is there too)
       await scopeBtn.click();
       await sheet.waitFor({ state: "detached" });
-      assert.equal(await scopeBtn.innerText(), w.one);
-      assert.equal(await pop.locator(".am-mr:not(.am-sr)").count(), 3);
+      const ids = await pop.locator(".am-mr:not(.am-sr)").evaluateAll((els) => els.map((e) => e.querySelector(".n")?.textContent));
+      assert.deepEqual(ids.filter(Boolean).sort(), ["Fast", "M2", "M3"], "M1 is hidden");
 
-      // and off again, from the same switch
+      // and back in the sheet, ticking it on again puts it back
       await scopeBtn.click();
       await sheet.waitFor();
-      assert.equal(await sheet.locator(".am-sh .c").innerText(), w.head(1, 2));
-      await sheet.locator(".am-sr", { hasText: "Fast" }).first().click();
-      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.off);
-      assert.deepEqual(fx.on(), []);
-      assert.equal(await sheet.locator(".am-sr .lib-switch.on").count(), 0);
+      assert.equal(await sheet.locator(".am-sown .am-mown").count(), 2);
+      await sheet.locator(".am-sown .am-mown").first().click();
+      await page.waitForTimeout(200);
+      assert.deepEqual(fx.hidden(), []);
 
-      // two at once
-      await sheet.locator(".am-sr", { hasText: "Fast" }).first().click();
-      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.one);
+      // a second group, and its own single model
       await sheet.locator(".am-sr", { hasText: "Slow" }).first().click();
       await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.two);
       assert.deepEqual(fx.on().sort(), ["group/fast", "group/slow"]);
-      assert.equal(await sheet.locator(".am-sh .c").innerText(), w.head(2, 2));
-      await scopeBtn.click();
-      await sheet.waitFor({ state: "detached" });
-      assert.equal(await pop.locator(".am-mr:not(.am-sr)").count(), 4, "the provider's two and both groups'");
+      assert.equal(await sheet.locator(".am-sown").count(), 2);
+      assert.deepEqual(await sheet.locator(".am-sown").nth(1).locator(".n").allInnerTexts(), ["M3"]);
+
+      // switching one off closes it again and takes its models out
+      await sheet.locator(".am-sr", { hasText: "Slow" }).first().click();
+      await page.waitForFunction((want) => document.querySelector(".am-scope")?.textContent === want, w.one);
+      assert.equal(await sheet.locator(".am-sown").count(), 1, "the switched-off group has no models shown");
+      assert.deepEqual(fx.on(), ["group/fast"]);
       assert.deepEqual(errors, []);
     });
   }

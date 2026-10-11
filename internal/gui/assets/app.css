@@ -3149,6 +3149,16 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-sr.sw { height: 34px; }
 .am-sr.sw .lib-switch { margin-left: 2px; }
 .am-sr.sw.off .n { color: var(--muted); }
+/* a switched-on group's own models, under it: indented past the switch's
+   column, a tick each — the same switch the list's own rows write */
+.am-sown { padding-left: 22px; margin-bottom: 2px; border-left: 2px solid var(--line-2); margin-left: 10px; }
+.am-sown .am-mown { height: 28px; gap: 8px; font-size: 12px; }
+.am-sown .am-mown .lg { flex: none; display: inline-flex; color: var(--muted); }
+.am-sown .am-mown .lg > .ic { width: 13px; height: 13px; }
+.am-sown .am-mown.off .n { color: var(--faint); }
+.am-sown .am-mown.off .lg { opacity: .45; }
+.am-sown .am-mown.lock { cursor: default; }
+.am-sown .am-mown.lock:hover { background: none; }
 .am-mr.out .n { color: var(--faint); }
 .am-mr.out .lg { opacity: .45; }
 .am-mr.out .x { opacity: .5; }

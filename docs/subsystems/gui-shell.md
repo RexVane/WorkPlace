@@ -197,23 +197,28 @@ axis controls.
 
 The model list under an agent's name on the Agents page carries a **Routing**
 button (`GET /api/agent-scope/{id}`), which opens a sheet of every routing
-group the catalog has. It answers one question: may this agent go through
-that way. A group is drawn as a **switch** (`role="switch"`, the app's own
+group the catalog has, **in the two steps the reader works in**: which groups
+this agent may go through, and then, under each one that is on, which of
+that group's own models it is shown.
+
+A group is drawn as a **switch** (`role="switch"`, the app's own
 `.lib-switch` from
-[`library.css`](../../internal/gui/assets/library.css)), and switching one
-on or off writes that agent's own entry in `settings.GroupsOn` (`POST
-/api/agent-scope/{id}` with the group's id and the wanted state). The models
-the answer carries are drawn again at once, so a group's models join the
-list under the sheet as its switch goes on.
+[`library.css`](../../internal/gui/assets/library.css)); switching one on or
+off writes that agent's own entry in `settings.GroupsOn` (`POST
+/api/agent-scope/{id}` with the group's id and the wanted state). A group
+that is on opens under its switch, with one row per model it is made of —
+each a tick writing `settings.HiddenModels` for this agent alone (`provider.
+GroupMembers` is where the sheet gets them). Ticking one off hides that model
+from this agent's lists while the group still routes through it; every other
+agent keeps it. The answer carries the whole hidden set back, so ticking one
+never puts another back.
 
 Routing groups are **off until one is switched on for that agent**: an agent
-connects on a provider's own model, and a group added later is off for it
-too until it is turned on. Every provider's own models are untouched either
-way — which of them the agent is shown is the list's own matter, ticked one
-by one there (`settings.HiddenModels`). The button says how many groups are
-on (`Routing: 2`) or that none is (`Routing: off`). The Agents page's lead
-line carries one button, **Turn routing groups off everywhere** (`POST
-/api/agents/routing-groups-off` in
+connects on a provider's own model, and a group added later is off for it too
+until it is turned on. Every provider's own models are untouched either way.
+The button says how many groups are on (`Routing: 2`) or that none is
+(`Routing: off`). The Agents page's lead line carries one button, **Turn
+routing groups off everywhere** (`POST /api/agents/routing-groups-off` in
 [`agent_models.go`](../../internal/gui/agent_models.go)), drawn while some
 agent has a group switched on: it clears them all. The sheet is drawn in the
 list's own place inside the pop rather than as a modal over the page.

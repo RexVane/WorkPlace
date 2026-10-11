@@ -185,20 +185,47 @@ func agentModelList(a *agent.Agent) []agentModelJSON {
 	return out
 }
 
-// scopeJSON is the range sheet of one agent's model list (the "Scope"
-// button): which routing groups that agent may go through. Routing groups
-// are off until one is switched on for the agent, so an agent connects on
-// a provider's own model and goes through a group only when the reader
-// says so.
+// scopeJSON is the routing sheet of one agent's model list (the "Routing"
+// button), in the two steps the reader works in: which routing groups the
+// agent may go through, and — under each one that is on — which of that
+// group's models it is shown.
 //
 // Names are the groups switched on for it (settings.GroupsOn), All every
-// group the catalog offers — the switch's own list. Which of a provider's
-// models the agent is shown is the list's matter, not this sheet's: those
-// are ticked one by one there (settings.HiddenModels).
+// group the catalog offers. Each group carries its own models and whether
+// the agent is shown each (settings.HiddenModels, the same per-model
+// switch the list itself ticks): taking one out hides it from this agent
+// alone — every other agent keeps it, and the group still routes through
+// it — which is 「路由组的某些模型显不显示」.
 type scopeJSON struct {
-	Agent string               `json:"agent"`
-	Names []string             `json:"names"`
-	All   []provider.ScopeName `json:"all"`
+	Agent  string               `json:"agent"`
+	Names  []string             `json:"names"`
+	All    []provider.ScopeName `json:"all"`
+	Models []scopeGroupJSON     `json:"models,omitempty"`
+	// Hidden is every entry this agent's lists don't show (settings'
+	// HiddenModels, whole). The sheet sends this set back with the one
+	// model it changed, so ticking one under a group never puts another
+	// back that the list — or a group the agent no longer goes through —
+	// had taken out
+	Hidden []string `json:"hidden,omitempty"`
+}
+
+// scopeGroupJSON is one routing group's own models, as the sheet draws them
+// under its switch: the group's catalog id and the entries it is made of.
+type scopeGroupJSON struct {
+	ID     string           `json:"id"`
+	Models []scopeModelJSON `json:"models"`
+}
+
+// scopeModelJSON is one model of a group: what the sheet names it by, and
+// whether this agent is shown it.
+type scopeModelJSON struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Hidden: this agent's lists don't show it (settings.HiddenModels)
+	Hidden bool `json:"hidden,omitempty"`
+	// InUse: the agent is set to it, so it stays whatever is asked
+	InUse bool   `json:"inUse,omitempty"`
+	Icon  string `json:"icon,omitempty"`
 }
 
 // scopeUsed is how much of an agent's catalog its range keeps, for the
@@ -213,10 +240,11 @@ type scopeUsed struct {
 }
 
 func agentScope(a *agent.Agent) scopeJSON {
-	on := provider.GroupsOn(a.ListsFor())
+	id := a.ListsFor()
+	on := provider.GroupsOn(id)
 	names := make([]string, 0, len(on))
-	for id := range on {
-		names = append(names, id)
+	for gid := range on {
+		names = append(names, gid)
 	}
 	slices.Sort(names)
 	// the sheet switches catalog entries, so only the "group/<id>" spelling
@@ -231,7 +259,51 @@ func agentScope(a *agent.Agent) scopeJSON {
 	if all == nil {
 		all = []provider.ScopeName{}
 	}
-	return scopeJSON{Agent: a.ListsFor(), Names: names, All: all}
+	// each group's own models, with this agent's per-model switch on them
+	off := provider.HiddenModels(id)
+	vals := a.Values()
+	models := make([]scopeGroupJSON, 0, len(all))
+	for _, s := range all {
+		members := provider.GroupMembers(s.Name)
+		if len(members) == 0 {
+			continue
+		}
+		g := scopeGroupJSON{ID: s.Name, Models: make([]scopeModelJSON, 0, len(members))}
+		for _, e := range members {
+			name := e.Name
+			if name == "" {
+				name = e.Model
+			}
+			m := scopeModelJSON{ID: e.ID, Name: name, Hidden: off[e.ID], InUse: usedIn(vals, e), Icon: e.Provider.Icon}
+			g.Models = append(g.Models, m)
+		}
+		models = append(models, g)
+	}
+	// and the whole hidden set, so the sheet can send it back with one change
+	hidden := make([]string, 0, len(off))
+	for hid := range off {
+		hidden = append(hidden, hid)
+	}
+	slices.Sort(hidden)
+	return scopeJSON{Agent: id, Names: names, All: all, Models: models, Hidden: hidden}
+}
+
+// usedIn reports whether one of the agent's values is this entry, so the
+// sheet can keep it from being taken out (the list's own rows do the same
+// through usedBy).
+func usedIn(vals map[string]string, e provider.Entry) bool {
+	for _, v := range vals {
+		if v == "" {
+			continue
+		}
+		if v == e.ID || strings.HasSuffix(v, "/"+e.ID) {
+			return true
+		}
+		if acc := e.Provider.Account; e.Group == "" && acc != nil && v == e.Model {
+			return true
+		}
+	}
+	return false
 }
 
 // scopeOf is an agent's range sheet and how much of the catalog it keeps.
@@ -268,10 +340,16 @@ func agentScopeAPI(mux *http.ServeMux) {
 	})
 	// on switches one routing group on or off for this agent alone. That
 	// agent's own list is drawn from what comes back
+	//
+	// hidden, when sent, is the models of the group being switched that this
+	// agent should no longer be shown (the sheet's ticks under it): the same
+	// per-model switch the list's own rows write, so a model taken out here
+	// is out there too, and every other agent keeps it
 	mux.HandleFunc("POST /api/agent-scope/{id}", func(rw http.ResponseWriter, r *http.Request) {
 		var in struct {
-			ID string
-			On bool
+			ID     string
+			On     bool
+			Hidden *[]string
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			fail(rw, err)
@@ -282,13 +360,20 @@ func agentScopeAPI(mux *http.ServeMux) {
 			fail(rw, err)
 			return
 		}
-		if err := provider.SetGroupOn(a.ListsFor(), in.ID, in.On); err != nil {
+		lists := a.ListsFor()
+		if in.Hidden != nil {
+			if err := provider.SetHiddenModels(lists, *in.Hidden); err != nil {
+				fail(rw, err)
+				return
+			}
+		}
+		if err := provider.SetGroupOn(lists, in.ID, in.On); err != nil {
 			fail(rw, err)
 			return
 		}
 		scope, used := scopeOf(a)
 		writeJSON(rw, map[string]any{"scope": scope, "used": used,
-			"models": agentModelList(a), "count": modelCount(a.ListsFor())})
+			"models": agentModelList(a), "count": modelCount(lists)})
 	})
 }
 

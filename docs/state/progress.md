@@ -247,3 +247,15 @@
   - 真实实例（重启后，网关 3425 / 预览 3437）：`/api/agent-scope/codex` → 开着 **0** 个组、可选 **16** 个、列表 75/92；打开 `group/auto-claude-opus-5-5` → 76/92 且该组在列表里；关掉 → 回到 75/92 且退出列表。`settings.json` 里没有 `groupsOn`（全默认关闭）、没有 `visible`（白名单已清）。
 - 影响文件：`internal/settings/settings.go`、`internal/catalog/catalog.go`、`internal/provider/visible.go`、`internal/provider/models.go`、`internal/gui/agent_models.go`、`internal/gui/api.go`、`internal/gui/assets/app.js`、`internal/gui/assets/i18n.js`、`internal/catalog/catalog_test.go`、`internal/provider/retired_test.go`(新)、`internal/provider/groups_on_test.go`(新)、`internal/gui/agent_scope_test.go`、`internal/gui/routing_groups_off_test.go`、`internal/gui/settings_keep_test.go`、`internal/gui/tests/agent-routing-sheet.test.cjs`(新)、若干 provider 测试、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`、`.gitignore`（`backups/*` 与 `!backups/INDEX.md`）、`backups/INDEX.md`(新)。
 - 下一步：用户在窗口里试一遍路由开关是否合意；`.gitattributes`（`text eol=lf`，防 i18n.js 整文件 diff）仍未定。
+
+## 2026-10-11 14:10 +08:00 | deepseek-v4.1-flash | Routing 面板做成两级：先开组，再勾组里哪些模型显示
+- 改了什么（用户原话：「我觉得逻辑是先确定哪些路由组是开的，然后再确定路由组哪些模型是启用的，也就显示显示。目前是这样子吗?不是的话,你跳一下顺序」——查证后确实只有第一级有界面，第二级得去别处逐条勾，于是补上）：
+  - **组内模型直接挂在组的开关下面**：`scopeJSON` 现在每个路由组附带它自己的成员（`provider.GroupMembers`，取 `FindGroup` 的成员再对回目录条目），并带该 Agent 对这个模型的显示状态；`scopeJSON.Hidden` 带上该 Agent 完整的 `HiddenModels`，前端据此改一个而不动其他。
+  - **前端两级渲染**：开关打开一个组后，它下面缩进列出该组的每个模型，一行一个勾（复用逐条模型那套 `settings.HiddenModels`）。勾掉 = 这个 Agent 不显示它，**组照旧路由它**；别的 Agent 不受影响。核对过「路由」与「显示」是两件事：组的开关管（第一级）路由，组内模型的勾管（第二级）显示。
+  - `POST /api/agent-scope/{id}` 现在同时接受 `hidden`（整份集合）与 `id`/`on`，一次写完两级；`writeScope` 把两个入口共用。
+- 验证：
+  - `go test -tags nogui ./internal/provider`（219s）、`./internal/catalog`、`./internal/settings` 全过；`./internal/gui` 只剩 4 个既有环境失败。`TestAgentScopeAPI` 补上两级断言（组内成员、勾掉后该模型进 kept 而列表里仍留行变暗）。
+  - 浏览器 `agent-routing-sheet.test.cjs` 重写为两级（开组 → 成员出现 → 勾掉一个 → 组仍开着 → 关组后成员行消失），Chromium + WebKit × en/zh 4 跑全过；`routing-groups-off`、`agent-models*`、`i18n-keys`、`gui-ja` 全过。
+  - 真实实例（网关 3425 / 预览 3437）：开 `group/auto-claude-fable-5` → 列表 76/92，其成员 `claude/claude-fable-5`、`copilot/claude-fable-5` 都列在组下；勾掉前者 → 75/92 且该成员标 hidden、组仍开着、后者不受影响；关组 → 74/92、组行退出列表，而被勾掉的记录留着（下次开组仍是隐藏）。
+- 影响文件：`internal/provider/visible.go`（`GroupMembers`）、`internal/gui/agent_models.go`（`scopeGroupJSON`/`scopeModelJSON`/`Hidden`、POST 收 hidden）、`internal/gui/assets/app.js`（两级渲染、`switchGroup`/`tickModel`/`writeScope`/`setScope`）、`internal/gui/assets/app.css`（`.am-sown`/`.am-mown`）、`internal/gui/agent_scope_test.go`、`internal/gui/tests/agent-routing-sheet.test.cjs`、`docs/subsystems/gui-shell.md`、`docs/subsystems/agent-wiring.md`。
+- 下一步：用户在窗口里看一眼两级面板；`.gitattributes` 仍未定。
