@@ -29,12 +29,14 @@ function fixture(lang) {
     { name: "group/fast", kind: "group", label: "Fast", icon: "openai", entries: 2 },
     { name: "group/slow", kind: "group", label: "Slow", icon: "openai", entries: 1 },
   ];
+  // two members under different providers' marks, so a row's own provider
+  // shows both in the source name and in the slot before it
   const members = {
     "group/fast": [
       { id: "relay/m1", name: "M1", provider: "Relay", icon: "openai" },
-      { id: "relay/m2", name: "M2", provider: "Relay", icon: "openai" },
+      { id: "relay/m2", name: "M2", provider: "Relay", icon: "anthropic" },
     ],
-    "group/slow": [{ id: "relay/m2", name: "M2", provider: "Relay", icon: "openai" }],
+    "group/slow": [{ id: "relay/m2", name: "M2", provider: "Relay", icon: "anthropic" }],
   };
   const hiddenSet = () => new Set(hidden);
   const listed = () => {
@@ -143,6 +145,11 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.match(await pop.locator(".am-note").innerText(), w.note);
       assert.deepEqual(await pop.locator(".am-mr .n").allInnerTexts(), ["Relay\nM1", "Relay\nM2"]);
       assert.equal(await pop.locator('.am-mr[aria-checked="true"]').count(), 2);
+      // each row leads with whose model it is, its provider's own mark in the
+      // slot the provider's own rows use, so two same-named members differ at
+      // a glance — not only by reading the source name
+      assert.deepEqual(await pop.locator(".am-mr .lg[data-icon]").evaluateAll((es) => es.map((e) => e.dataset.icon)),
+        ["openai", "anthropic"], "a member row carries its provider's mark");
 
       // switching it on lets the agent go through it: the group joins the
       // list, and the note goes

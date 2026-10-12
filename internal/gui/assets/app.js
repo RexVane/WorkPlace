@@ -2559,7 +2559,13 @@ async function openAgentModels(a, anchor, ev) {
       d.append(icon(m.icons[0] || "generic"));
       lg = el("span", "ic-stack");
       lg.append(d);
-    } else lg = m.logo && !route ? icon(m.logo) : el("span", "ic");
+    }
+    // a group's member row: whose model it is, in the slot a provider's own
+    // rows give the provider's logo — a group's members often carry the same
+    // name from several providers, and the mark tells them apart as fast as
+    // the source name beside it does
+    else if (inGroup && m.icon) lg = icon(m.icon);
+    else lg = m.logo && !route ? icon(m.logo) : el("span", "ic");
     if (route && !m.icons?.length) lg.append(svg(FAN, 14, 1.5));
     lg.classList.add("lg");
     const ctx = inGroup && m.context === undefined ? "" : ctxShort(m.context);

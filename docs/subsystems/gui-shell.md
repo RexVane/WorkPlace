@@ -212,7 +212,10 @@ it is on or off, so they can be picked before the group itself is switched
 on; while it is off the list says so and where to turn it on. Each row names
 **whose** model it is (`Claude Code: Claude Opus 5.5`, `Copilot: Claude Opus
 5.5`) — a group's members often carry the same name from several providers,
-and the source is what tells them apart. The rail's second heading is the
+and the source is what tells them apart. That provider's own **mark** leads
+the row, in the slot a provider's own rows give its logo (`scopeModelJSON.Icon`
+from `e.Provider.Icon`), so two same-named members differ at a glance rather
+than only by reading the source name. The rail's second heading is the
 providers, drawn as before.
 
 There is **no separate sheet and no Routing button**: the rail's own switch is

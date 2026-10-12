@@ -3094,10 +3094,10 @@ body.window .row.agent .who.with-models { flex-wrap: wrap; row-gap: 0; }
 .am-mr .lg { flex: none; }
 .am-mr .lg > svg { color: var(--muted); }
 .am-mr.off .lg { opacity: .45; }
-/* a picked routing group's own member rows carry one icon of their own, so
-   they take the ordinary slot and their names have the room; the 56px slot
-   is for a routing group drawn as a row of its providers' discs, which is
-   the rail's matter now */
+/* a picked routing group's own member rows carry the mark of the provider
+   the member comes from, so they take the ordinary slot and their names
+   have the room; the 56px slot is for a routing group drawn as a row of its
+   providers' discs, which is the rail's matter now */
 .am-g.routes > .am-rows > .am-mr .lg { min-width: 0; }
 .am-mr .ic-stack .disc { width: 17px; height: 17px; }
 .am-mr .ic-stack .disc > .ic { width: 11px !important; height: 11px !important; }

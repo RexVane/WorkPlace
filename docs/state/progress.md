@@ -280,3 +280,15 @@
 - 影响：索引里本就是 LF（0 个 CRLF blob），所以**没有触发全库重写**；`git add --renormalize .` 零改动。顺手把工作区里 7 个行尾混合的文件（`.dockerignore`、`Makefile`、`README.md`、`README.zh-CN.md`、`build/windows/winres.json`、`internal/gui/assets/i18n.js`、`internal/gui/tests/brand.test.cjs`）在磁盘上统一成 LF——`git hash-object --path` 与 HEAD 逐一比对确认内容零改动。
 - 影响文件：`.gitattributes`（新）、`docs/workplace/maintenance.md`（新增「行尾约定」一节）。
 - 备注：`git status` 一度把这 7 个文件报成已修改，是 stat 缓存陈旧；`git diff` 为空、blob 哈希一致，`git add` 刷新后即消失。
+
+## 2026-10-12 10:00 +08:00 | deepseek-v4.1-flash | 路由组成员行加上对应提供商的图标
+- 改了什么(用户指着右栏两行说「路由组左边建议显示对应提供商的图标吧」):一个路由组的成员常是多家同一个模型名(`Claude Code: Claude Fable 5` / `Copilot: Claude Fable 5`),此前两行只靠来源文字区分,左边那一格是空的。
+  - `app.js` 的 `modelRow`:`inGroup` 时用这条成员自己的 `m.icon`(= `e.Provider.Icon`;后端 `scopeModelJSON.Icon` 早就带回来了,此前只有组行与 provider 行用),复用 provider 自己那行的同一套 `icon()`(彩色 logo 出图、单色 logo 走 mask)。
+  - `app.css` 只改注释(说明这格现在放成员的来源标记);`.am-g.routes > .am-rows > .am-mr .lg { min-width: 0 }` 本就允许它撑开,布局未动。
+- 验证:
+  - `node --check app.js` 通过;`go build -tags nogui ./...`、`go vet -tags nogui ./...` 全过。
+  - 浏览器用例 `agent-routing-sheet.test.cjs`:夹具里同一个组的两条成员给了两个不同 icon,新增断言「成员行左边那格带自己提供商的标记」(`.am-mr .lg[data-icon]` == `["openai","anthropic"]`);Chromium 与 WebKit × en/zh 四跑全过。`agent-models`、`routing-groups-off`、`i18n-keys` 同轮全过。
+  - Go:`TestAgentScopeAPI`、`TestRoutingGroupsOffEverywhere`、`TestSettingsSaveKeepsWhatItDoesNotSend` 通过;`TestPurposeAssetMatchesUsage` 失败与本轮无关——已 `git stash -u` 回基线复跑,基线同样失败(purposes.js 与 Go 目录不一致,既有问题)。
+  - 真实实例(源码启动,网关 3425 / 预览 3437,pid 8732):点 Codex 的模型列表 → 左栏点 `Claude Fable 5` → 右栏两行分别是 `claudecode-color` 与 `githubcopilot`;1040/700/560/390px 四个宽度截图目视,图标 16px、来源名与模型名都没被截断,页面 0 条报错(仅预览模式固有的 `/wails/runtime.js` 404)。
+- 影响文件:`internal/gui/assets/app.js`、`internal/gui/assets/app.css`(注释)、`internal/gui/tests/agent-routing-sheet.test.cjs`、`docs/subsystems/gui-shell.md`(该节补一句那格放的是来源标记)。
+- 下一步:用户在窗口里看一眼这一格;截图在 `dist/routing-icon-verify/`,确认后可清理。
