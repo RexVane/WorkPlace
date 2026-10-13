@@ -16810,7 +16810,21 @@ function renderSessShape() {
     try { localStorage.setItem("magpie.sessShape", id); } catch {}
     renderSessShape();
   });
-  head.append(seg, el("span", "grow"), el("span", "tz", sh ? t(sh.total === 1 ? "{n} session" : "{n} sessions", { n: fmtN(sh.total) }) : ""));
+  // This card counts only the sessions that reported the thing it is
+  // bucketing (stats.go's shapes leaves out a session with no message
+  // counts, or no active time, for that axis). That is not the range's
+  // session count the KPI tile beside it shows, so when the two differ both
+  // are named: "236 of 1,106 sessions", never a bare "236 sessions" that
+  // reads as the range having lost nine tenths of them.
+  const rangeCount = ov.count || 0;
+  const counted = sh ? sh.total : 0;
+  const many = rangeCount > counted;
+  const countLabel = !sh ? "" : many
+    ? t("{n} of {total} sessions", { n: fmtN(counted), total: fmtN(rangeCount) })
+    : t(counted === 1 ? "{n} session" : "{n} sessions", { n: fmtN(counted) });
+  const count = el("span", "tz", countLabel);
+  if (many) count.title = t("Only the sessions that reported it are counted; the rest are left out");
+  head.append(seg, el("span", "grow"), count);
   box.append(head);
   slide(seg, "sessShape");
   if (!sh?.total) return box.append(el("div", "sess-none", ov.shape ? t("Nothing in this range.") : "…"));

@@ -313,3 +313,21 @@
 - 下一步:本机 `Get-NetTCPConnection` 非管理员无权限与 junction `\\?\Global\` 前缀两个环境问题,若要修应在独立提交里处理(前者可回退 `netstat -ano`,后者可在 `linkTarget`/`ours` 里剥掉 `\\?\Global\`)。`dist/routing-icon-verify/` 截图等待用户确认后可清理。
 
 - 2026-10-14 01:13 | #001 | GitHub | 将我这个项目改动过的上传到我的github；项目名 WorkPlace，MIT协议，结尾感谢原作者；来源 https://github.com/yetone/magpie main，本地原分支 main；目标公开仓库 RexVane/WorkPlace，工作分支 rexvane-workplace；保留原作者版权并补充修改署名，中英文 README 末尾致谢，补齐忽略规则；改动与提交历史检查完成 | gpt-6
+
+- 2026-10-14 02:50 | #002 | 会话 | 核验用量/路由/会话三页显示数字后修两处：会话形态卡的会话数写成「N of M」、活跃时长逐小时舍入对账 | deepseek-v4.1-flash
+- 前因：用户要求「深度查看用量、路由、会话对应的显示数字是否正确，我要确保完全正确」。核验方法与结论：
+  - 为消除竞态（我的每次工具调用都经网关写 usage.jsonl，比对时数字仍在增长），把 `usage.jsonl` 等复制成冻结数据集，用 `XDG_CONFIG_HOME` 起了独立实例（3455/3458）读不变的数据副本；再用 Python 按源码口径独立复算（不调用项目代码），做「原始数据 ↔ 项目内部定价探针 ↔ API」三方比对。
+  - **用量页全部一致**：顶层 12 字段、8 个日桶 ×12 字段、agents/models/sessions/accounts 四类分组共 71 组 ×12 字段，逐字段相等；成本按 `CostSplit`（含价目档位与 1h 缓存价）逐条复算 996 条，**合计差额 0.000000000000**；取价链对 models.dev 严格核验 613 条，0 处不符。
+  - **路由页一致**：每日请求数 7 天与 `routing/*.jsonl(.gz)` 行数完全相同；errors 计数用前端真实的 `outcome()`（`routing.js:1797-1809`，`tryOk = status<400 && !fail`）在 4243 条记录上重算，与后端 `trace.go:424` 零分叉（此前按「任一 try 失败」算出的 56 条分叉是我规则写错，已证伪）。
+  - **会话页 49/49 一致**：独立解析 49 个 Claude 会话，对齐 parser 的三处口径后逐条 token 完全相同——`cache_write = max(顶层, 5m+1h)`（`sessions.go:75-82`）、去重键是 `(message.id, requestId)` 分支且分支内只计最新版本（`claude_usage.go:62-97,141-167`）、计入状态**每个文件一份**所以主文件与 `subagents/**` 各计一次（`claude_usage.go:10-14`）。最后一个差异会话的根因是同一个 `message.id` 出现在主文件与 3 个子代理文件里。
+  - 已证伪的可疑点：时区日界（4222 条历史记录的 `time` 前缀与日文件名零不符，Go 序列化带本地偏移）、配额未 clamp（本机各窗口 used 均在 0..100）。
+- 改动一 · 会话形态卡的会话数（`internal/gui/assets/app.js` `renderSessShape`）：该卡只统计「报了这项的会话」（`stats.go` 的 `shapes` 对 `messages`/`autonomy` 跳过 `Prompts+Replies==0`，对 `minutes` 跳过 `Active<=0`），却把 `sh.total` 直接写成「N sessions」，与同页 KPI 的 `ov.count` 并列显示，实测 `days=0` 时是 236 对 1106、`days=30` 时 153 对 274，容易被读成会话数掉了九成。现在两个数不同时写成「**236 of 1106 sessions**」，并给该数字加 title 说明「只统计报了这项的会话，其余不计入」；相同则维持原文案。新增两条文案 × 中/繁/日/德四语。
+- 改动二 · 活跃时长的逐小时舍入（`internal/sessions/stats.go`）：`Seconds = a.ms/1000` 与每个小时各自 `ms/1000` 是同一个时间段的两种写法，截断点不同，逐小时相加会比总数少最多 23 秒，而页面上「active」与「By hour」网格并列显示。实测全量数据 2,680,824 秒 vs 2,680,045 秒（差 779 秒，315 行受影响）。现按最大余数法把差额逐秒还给「因整除损失最多」的小时，使 Σhours 恒等于 Seconds。
+- 验证：
+  - 反向验证（项目标准要求）：新增 `TestStatsHoursAddUpToActive`（两段各不足 5 分钟的间隔、跨 22 时与 23 时，200.6s + 200.7s = 401.3s）：撤掉对账逻辑后**以真实断言失败**（`the hours add up to 400, the active total is 401: [… 200 200]`），恢复后通过；对账写在 `(日期, agent, 目录)` 那一行内（跨天的间隔各自成行，不会有缺口）。
+  - `go build -tags production ./...`、`go vet -tags production ./...` 通过；`gofmt` 仅因本机 `core.autocrlf=true`（工作区 CRLF、索引 LF）对**未改动文件同样报**，非本次引入。
+  - `go test ./internal/sessions/` 整套通过；`go test ./internal/gui/` 只剩 3 个既有失败（`TestGatewayHeldByAContainer`、`TestGatewayFixQuitsOnlyAMagpie`、`TestUpdateThatWontStart`），已在**未改动的 HEAD**（`git worktree add --detach`）上复现同样失败，与本次改动无关。
+  - **未运行**：`internal/gui/tests/**` 的 Playwright 套件——本机 `ms-playwright` 为空目录、`playwright` 包解析不到（`MODULE_NOT_FOUND`），浏览器测试无法启动。前端改动只做了 `node --check`（两文件通过）、四语文案键与占位符核对、以及用真实 API 数据模拟新显示逻辑（`days=0` → `236 of 1106`、`days=30` → `153 of 274`）。
+- 影响文件：`internal/sessions/stats.go`、`internal/sessions/stats_test.go`（新增用例与 `sum` 辅助）、`internal/gui/assets/app.js`、`internal/gui/assets/i18n.js`（2 条 ×4 语）。
+- 核验脚本与原始输出留在 `dist/verify-numbers-20261014/`（已被 `dist/` 忽略，未进 git）。
+- 下一步：会话形态卡的文案要等浏览器套件能跑时补一条断言（现在无法运行）；其余 agent（codex/dsh/grok 等）的会话解析只验了接口自洽，没有像 Claude 那样逐文件复算。

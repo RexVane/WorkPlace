@@ -244,8 +244,27 @@ func statsAt(days int, now time.Time) Stats {
 		v := Active{Agent: k.agent, Cwd: k.cwd, Seconds: a.ms / 1000}
 		if a.hours != nil {
 			v.Hours = make([]int64, 24)
+			var split int64
 			for h, ms := range a.hours {
 				v.Hours[h] = ms / 1000
+				split += v.Hours[h]
+			}
+			// Seconds and the hourly split are the same stretch of time: each
+			// hour divided on its own leaves up to 23 seconds out of the sum,
+			// and the page shows both (the active total, and the by-hour grid,
+			// sessions.js By hour). Give the leftovers back a second at a time,
+			// to the hours that lost the most to their division, so the parts
+			// add up to the total they came from.
+			order := make([]int, 24)
+			for h := range order {
+				order[h] = h
+			}
+			slices.SortStableFunc(order, func(x, y int) int {
+				return cmp.Compare(a.hours[y]%1000, a.hours[x]%1000)
+			})
+			for i := 0; i < len(order) && split < v.Seconds; i++ {
+				v.Hours[order[i]]++
+				split++
 			}
 		}
 		byDate[k.date].Active = append(byDate[k.date].Active, v)

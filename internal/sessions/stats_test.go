@@ -264,3 +264,55 @@ func sortedByLast(ss []Summary) bool {
 	}
 	return true
 }
+
+// The active total and the by-hour split are the same stretch of time, and
+// the page shows both beside each other (the active tile, and the By hour
+// grid). Each hour divided on its own leaves its own fraction behind, so the
+// parts must be reconciled to the total: without it they come up short.
+func TestStatsHoursAddUpToActive(t *testing.T) {
+	inZone(t, 8)
+	claude, _ := setup(t)
+	path := filepath.Join(claude, "projects", "-work-sum", "55555555-2222-3333-4444-555555555555.jsonl")
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	// two pauses in one day, each under five minutes, one in the 22:00 hour
+	// and one in the 23:00: 200.6s + 200.7s = 401.3s active that day, while
+	// the two hours divided on their own come to 200 + 200 = 400.
+	os.WriteFile(path, []byte(ccMsg("s1", "2026-09-20T14:56:00.000Z", 10, 1)+
+		ccMsg("s2", "2026-09-20T14:59:20.600Z", 10, 1)+
+		ccMsg("s3", "2026-09-20T15:02:41.300Z", 10, 1)), 0o644)
+
+	s := statsAt(0, statsNow)
+	var sec int64
+	var row Active
+	for _, d := range s.Days {
+		for _, a := range d.Active {
+			if a.Cwd == "/work/night" {
+				sec += a.Seconds
+				if d.Date == "2026-09-20" {
+					row = a
+				}
+			}
+		}
+	}
+	if sec != 401 {
+		t.Fatalf("active %ds, want 401", sec)
+	}
+	if len(row.Hours) != 24 {
+		t.Fatalf("hours %v", row.Hours)
+	}
+	if split := sum(row.Hours); split != row.Seconds {
+		t.Fatalf("the hours add up to %d, the active total is %d: %v", split, row.Seconds, row.Hours)
+	}
+	// the missing second goes to the hour that lost the most to its division
+	// (the 23:00 one, 200.7s against the 22:00 one's 200.6s)
+	if row.Hours[22] != 200 || row.Hours[23] != 201 {
+		t.Fatalf("22:00 = %d, 23:00 = %d", row.Hours[22], row.Hours[23])
+	}
+}
+
+func sum(xs []int64) (n int64) {
+	for _, x := range xs {
+		n += x
+	}
+	return n
+}
