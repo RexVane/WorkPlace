@@ -12,7 +12,6 @@
 /backups/*
 !/backups/INDEX.md
 __pycache__/
-/.agents/
 /.claude/
 /.codex/
 /.commandcode/
@@ -20,3 +19,16 @@ __pycache__/
 /.zcode/
 /build/darwin/actool/
 /build/darwin/magpie.iconset/
+
+# Credentials, dependencies, generated files and local tool state
+.env*
+!.env.example
+node_modules/
+.venv/
+.next*/
+*.tsbuildinfo
+*.log
+/.cursor/
+/.gemini/
+/.kiro/
+/.qoder/

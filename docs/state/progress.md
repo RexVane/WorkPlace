@@ -311,3 +311,5 @@
   - 真实发请求:`claude/claude-haiku-4-5` 经网关返回 HTTP 200、`reply: ok`。`deepseek/deepseek-flash` 回上游 401(该服务商密钥失效,与本轮无关);`copilot/gemini-3.7-flash` 回「model is not supported」(该账户不支持,与本轮无关)——两者都说明网关路由本身正常。
 - 影响文件:无源码改动;`docs/state/progress.md`(本条)。
 - 下一步:本机 `Get-NetTCPConnection` 非管理员无权限与 junction `\\?\Global\` 前缀两个环境问题,若要修应在独立提交里处理(前者可回退 `netstat -ano`,后者可在 `linkTarget`/`ours` 里剥掉 `\\?\Global\`)。`dist/routing-icon-verify/` 截图等待用户确认后可清理。
+
+- 2026-10-14 01:13 | #001 | GitHub | 将我这个项目改动过的上传到我的github；项目名 WorkPlace，MIT协议，结尾感谢原作者；来源 https://github.com/yetone/magpie main，本地原分支 main；目标公开仓库 RexVane/WorkPlace，工作分支 rexvane-workplace；保留原作者版权并补充修改署名，中英文 README 末尾致谢，补齐忽略规则；改动与提交历史检查完成 | gpt-6

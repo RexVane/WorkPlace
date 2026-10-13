@@ -399,3 +399,11 @@ If magpie saved you from editing one more config file, **a ⭐ helps others find
 [MIT](LICENSE)
 
 </details>
+
+## License
+
+WorkPlace is distributed under the [MIT License](LICENSE). The original Magpie copyright notice is retained.
+
+## Acknowledgments
+
+WorkPlace is based on [Magpie](https://github.com/yetone/magpie). Thank you to its original author [yetone](https://github.com/yetone) and all Magpie contributors for their work and for sharing the project under the MIT License.

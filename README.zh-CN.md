@@ -399,3 +399,11 @@ magpie tui                                      # 全部功能，在终端里
 [MIT](LICENSE)
 
 </details>
+
+## 许可证
+
+WorkPlace 使用 [MIT 协议](LICENSE)，保留 Magpie 原项目的版权声明。
+
+## 致谢
+
+WorkPlace 基于 [Magpie](https://github.com/yetone/magpie) 开发。感谢原作者 [yetone](https://github.com/yetone) 及所有 Magpie 贡献者的付出，感谢他们以 MIT 协议开放这个项目。
