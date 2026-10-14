@@ -285,6 +285,10 @@ button.rt-session { cursor: pointer; }
 .rt-act .bar { height: 3px; border-radius: 2px; background: var(--card-2); overflow: hidden; }
 .rt-act .bar i { display: block; height: 100%; border-radius: 2px; background: var(--muted); }
 .rt-livedot { width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--green); animation: rtlive 1.8s infinite; --fg: var(--green); }
+/* the trace isn't answering: the dot stops claiming live and says so beside
+   it, rather than pulsing green over numbers that stopped arriving */
+.rt-livedot.down { background: var(--amber); animation: none; --fg: var(--amber); }
+.rt-feednote { margin-left: 8px; color: var(--amber); font-size: 11.5px; }
 @media (prefers-reduced-motion: reduce) { .rt-livedot { animation: none; } }
 /* routing groups, and the providers routing over several of their own */
 .rt-gsec { display: grid; gap: 6px; margin-top: 16px; }
@@ -557,7 +561,7 @@ button.rt-session { cursor: pointer; }
 .ps-dst.bad > i { background: var(--red); }
 .ps-dst.wait > i { background: var(--muted); animation: rtlive 1.8s infinite; }
 .ps-hub { position: relative; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--fg); background: var(--card); box-shadow: inset 0 0 0 1px var(--line), 0 1px 3px rgba(0, 0, 0, .08); }
-.ps-hub svg { width: 24px; height: 24px; }
+.ps-hub .ic, .ps-hub svg { width: 24px; height: 24px; }
 .ps-hub.busy { animation: ps-ring 1.8s ease-out infinite; }
 @keyframes ps-ring { 0% { box-shadow: inset 0 0 0 1px var(--line), 0 0 0 0 color-mix(in srgb, var(--fg) 16%, transparent); } 70%, 100% { box-shadow: inset 0 0 0 1px var(--line), 0 0 0 7px transparent; } }
 .ps-dot { fill: var(--agent, var(--accent)); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--agent, var(--accent)) 60%, transparent)); transition: fill .2s, opacity .3s; }

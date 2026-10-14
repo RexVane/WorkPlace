@@ -2716,6 +2716,22 @@
     more.hidden = !!msg;
   }
 
+  // The trace feed's own state, told as it is. A read that fails (this
+  // magpie's backend gone, the request refused) leaves the page holding the
+  // numbers it last read, so the dot beside "live, as the gateway decides"
+  // stops claiming live and the line says what is happening; a read that
+  // answers again puts it back. Without this the dot pulsed green over
+  // numbers that had stopped arriving.
+  let feedDown = false;
+  const feedDot = $("#rtLiveDot"), feedNote = $("#rtFeedNote");
+  const feedWords = () => t("The live feed isn't answering — retrying; what is shown is the last it read");
+  function feedState() {
+    feedDot.classList.toggle("down", feedDown);
+    feedNote.hidden = !feedDown;
+    feedNote.textContent = feedDown ? feedWords() : "";
+  }
+  feedState();
+
   function empty() {
     offline("");
     what.replaceChildren(el("b", "", t(purpose.length || day ? "No requests match these filters." : "Waiting for a request")));
@@ -2745,6 +2761,7 @@
       try {
         const res = await fetch(`/api/gateway/trace?after=${seq}${loaded ? "&wait=1" : ""}`);
         const d = await res.json();
+        if (feedDown) { feedDown = false; feedState(); renderPanel(); } // it answers again
         noteAccounts(d);
         skew = at(d.now) - Date.now();
         mine = d.mine;
@@ -2808,6 +2825,9 @@
           renderAll();
         }
       } catch {
+        // the read failed: say so once, and leave the page holding what it
+        // last read rather than pulsing green over a feed that stopped
+        if (!feedDown) { feedDown = true; feedState(); renderPanel(); }
         await new Promise((r) => setTimeout(r, 3000));
       }
     }
@@ -2819,6 +2839,7 @@
   function words() {
     for (const s of stats.children) s.lastChild.textContent = t(s.dataset.label);
     hubText();
+    feedState();
     // the caption said before, said again in these words: it was set as text
     if (loaded) { if (cur) { sync(true); renderAll(); capQ = []; say(affWhy(cur, true) || ruleWhy(cur, true) || firstWhy(cur)); } else empty(); }
     renderGroups();
@@ -4184,7 +4205,10 @@
   pWires.setAttribute("class", "ps-wires");
   pSky.setAttribute("class", "ps-sky");
   const pFrom = el("div", "ps-col ps-from"), pTo = el("div", "ps-col ps-to"), pHub = el("div", "ps-hub");
-  pHub.innerHTML = '<svg viewBox="0 0 44 44" aria-hidden="true"><use href="#bird"/></svg>';
+  // the gateway's own mark: the app's, not the bird the header used to carry
+  // (#bird was defined by the old logo and the logo no longer has it, so the
+  // <use> drew nothing at all)
+  pHub.append(icon("favicon"));
   pStage.append(pWires, pFrom, pHub, pTo, pSky);
   pStage.setAttribute("aria-hidden", "true");
   let pAg = [], pDst = [];          // the keys on the stage, in their places
@@ -4385,8 +4409,9 @@
     const open = el("button", "text", t("Open Routing"));
     open.type = "button";
     open.onclick = (e) => { api("window/main?view=routing", {}); e.currentTarget.blur(); };
-    head.append(el("span", "rt-livedot"), sum, el("span", "grow"), open);
+    head.append(el("span", "rt-livedot" + (feedDown ? " down" : "")), sum, el("span", "grow"), open);
     const out = [head];
+    if (feedDown) out.push(el("p", "pr-none", feedWords()));
     const rs = [...routes.values()].sort((a, b) => b.id - a.id).slice(0, P_ROWS);
     if (!offMsg && loaded && rs.length) out.push(pStage);
     if (offMsg) out.push(el("p", "pr-none", t(offMsg)));
