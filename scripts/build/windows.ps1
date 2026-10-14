@@ -34,8 +34,14 @@ try {
         python -B scripts/branding/apply_icons.py
         if ($LASTEXITCODE -ne 0) { throw 'Could not apply WorkPlace icons.' }
     }
-    python -B scripts/maintenance/archive.py $workplaceOutput ('rsrc_windows_' + $Architecture + '.syso')
-    if ($LASTEXITCODE -ne 0) { throw 'Could not preserve the previous build.' }
+    # The previous build goes rather than piling up in backups/: every version
+    # can be rebuilt from the commit its build.json names, and each archived
+    # exe is another 44 MB of disk (see docs/workplace/maintenance.md, "旧 exe
+    # 一律删除不留档"). This used to run scripts/maintenance/archive.py, which
+    # kept them — the doc and the script disagreed, and the script was wrong.
+    foreach ($workplaceOld in @($workplaceOutput, ('rsrc_windows_' + $Architecture + '.syso'))) {
+        if (Test-Path -LiteralPath $workplaceOld) { Remove-Item -LiteralPath $workplaceOld -Recurse -Force }
+    }
     New-Item -ItemType Directory -Path $workplaceOutput -Force | Out-Null
 
     $env:CGO_ENABLED = '0'

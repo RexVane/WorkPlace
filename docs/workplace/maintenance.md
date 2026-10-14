@@ -28,7 +28,7 @@ git log --oneline HEAD..origin/main
   ```
   脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:3437`，独立网关端口 3436，不占用正式实例的 3425。
 - 修改敲定后再运行 `scripts/build/windows.ps1` 构建 exe 并安装（见下节）。
-- **旧 exe 一律删除不留档**：任何版本都能按 `build.json` 记录的源码版本从 Git 重建，归档 exe 只浪费磁盘（2026-10-09 已清理约 515 MB）。
+- **旧 exe 一律删除不留档**：任何版本都能按 `build.json` 记录的源码版本从 Git 重建，归档 exe 只浪费磁盘（2026-10-09 已清理约 515 MB）。`scripts/build/windows.ps1` 现在直接删掉上一次的输出与 `rsrc_windows_*.syso`——它此前调用 `scripts/maintenance/archive.py` 归档，与这条规则相反，2026-10-14 改正。上游 Makefile 的各目标仍用 `archive.py`（上游约定，本机不用那些目标）。
 - `dist/` 只放当前有效产物；验证日志和审阅截图确认后及时清理，不长期堆积。
 
 ## 构建
