@@ -130,20 +130,22 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const act = page.locator(".rt-prov", { hasText: "Sub2API" }).locator("xpath=following-sibling::div[contains(@class, 'rt-act')][1]");
       await act.locator(".st", { hasText: "80 / 800" }).waitFor();
       const st = (await act.locator(".st").textContent()).trim();
-      assert.ok(st.includes("10%") && st.includes("80 / 800"), st);
+      // a percent in what a row says carries two decimals (dp2, cb4c71a4
+      // unified the page's numbers on it): 10% reads as 10.00%
+      assert.ok(st.includes("10.00%") && st.includes("80 / 800"), st);
       assert.equal(await act.locator(".bar i").evaluate((i) => i.style.width), "10%");
       assert.deepEqual(errors, []);
     });
 
     test(`${engine} ${lang}: keys all at 90% or more say so, keys and all`, async (t) => {
       const { page, errors, say, row, why } = await open(t, engine, lang, "low");
-      const want = await say("Every key and account here is at 90% or more of its allowance, so the one with the most left goes first: {who}, at {n}.", { who: "relay-a", n: "92%" });
+      const want = await say("Every key and account here is at 90% or more of its allowance, so the one with the most left goes first: {who}, at {n}.", { who: "relay-a", n: "92.00%" });
       assert.equal((await why()).trim(), want);
       // the other key's place is told as an account's would be
-      const aside = await say("{who} is at {n} — kept for when the others can't.", { who: "relay-b", n: "95%" });
+      const aside = await say("{who} is at {n} — kept for when the others can't.", { who: "relay-b", n: "95.00%" });
       const steps = await page.locator(".rt-steps li").allTextContents();
       assert.ok(steps.some((s) => s.includes(aside)), steps.join("\n"));
-      assert.match(await row("relay-b").locator("em").textContent(), /95%/);
+      assert.match(await row("relay-b").locator("em").textContent(), /95\.00%/);
       // the header tells Smart as it weighs them, not as keys in their order
       assert.equal((await page.locator(".rt-mode").textContent()).trim(),
         await say("Smart: of the accounts with quota to spare, the one whose allowance renews soonest goes first — what it has left would be lost at the reset. The week decides; an account with five hours and no week goes by its five hours. One at 90% or more waits until the others can't answer; one resting after a failure goes last."));
@@ -153,14 +155,14 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       test(`${engine} ${lang} ${width}px: one key on still says what it has left`, async (t) => {
         const { page, errors, say, row, why } = await open(t, engine, lang, "lone", width);
         assert.equal((await why()).trim(), await say("{name} has one key on — nothing to choose between.", { name: "Kimi Code (China)" }));
-        const used = (await say("{n} used · renews in {d}", { n: "49%" })).split("{d}")[0];
+        const used = (await say("{n} used · renews in {d}", { n: "49.00%" })).split("{d}")[0];
         // its row in the story has a bar; it answered, so it says that
         const key = row("Kimi Code (China)");
         assert.equal(await key.locator(".bar i").evaluate((i) => i.style.width), "49%");
         assert.equal(await key.evaluate((li) => li.classList.contains("nobar")), false);
         // its own row under its name says what is used and when it renews
         const act = page.locator(".rt-prov", { hasText: "Kimi Code (China)" }).locator("xpath=following-sibling::div[contains(@class, 'rt-act')][1]");
-        await act.locator(".st", { hasText: "49%" }).waitFor();
+        await act.locator(".st", { hasText: "49.00%" }).waitFor();
         const st = (await act.locator(".st").textContent()).trim();
         assert.ok(st.startsWith(used), `${st}\nwant ${used}…`);
         assert.equal(await act.locator(".bar i").evaluate((i) => i.style.width), "49%");
@@ -175,7 +177,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
     test(`${engine} ${lang}: a key not read yet beside one read is told as weighed with it`, async (t) => {
       const { page, errors, say, why } = await open(t, engine, lang, "mixed");
       assert.equal((await why()).trim(), await say("{who} goes first.", { who: "relay-b" }));
-      const aside = await say("{who} is at {n} — kept for when the others can't.", { who: "relay-a", n: "95%" });
+      const aside = await say("{who} is at {n} — kept for when the others can't.", { who: "relay-a", n: "95.00%" });
       const steps = await page.locator(".rt-steps li").allTextContents();
       assert.ok(steps.some((s) => s.includes(aside)), steps.join("\n"));
       assert.equal((await page.locator(".rt-mode").textContent()).trim(),

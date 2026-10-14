@@ -60,14 +60,16 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const reading = card.locator(".quota-read");
       await reading.waitFor();
       assert.match(await reading.innerText(), lang === "en" ? /As of .*expired.*unknown/ : /截至 .*已过期.*未知/);
-      assert.match(await card.locator(".quota-n").innerText(), /100%/);
+      // a quota's percent carries two decimals (dp2, cb4c71a4 unified the
+      // page's numbers on it): 100% reads as 100.00%, 25% as 25.00%
+      assert.match(await card.locator(".quota-n").innerText(), /100\.00%/);
       assert.match(await card.locator(".quota-reset").innerText(), lang === "en" ? /Reset time passed/ : /重置时间已过/);
       assert.doesNotMatch(await card.locator(".quota-reset").innerText(), /in 1m|1 分钟后|1分钟后/);
       delete quota.asOf;
       quota.windows[0].used = 25;
       quota.windows[0].resetsAt = new Date(Date.now() + 36e5).toISOString();
       await page.locator("#usageReload").click();
-      await page.waitForFunction(() => document.querySelector(".subscription-card .quota-n")?.textContent.includes("25%"));
+      await page.waitForFunction(() => document.querySelector(".subscription-card .quota-n")?.textContent.includes("25.00%"));
       assert.equal(await reading.count(), 0, "a new reading clears the snapshot warning");
       assert.deepEqual(errors, []);
     });
@@ -93,7 +95,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         await reading.waitFor();
         assert.match(await reading.innerText(), lang === "en" ? /As of .*expired.*unknown/ : /截至 .*已过期.*未知/);
         if (surface === "panel") assert.doesNotMatch(await reading.innerText(), /couldn't be read just now|暂时无法获取最新额度/);
-        assert.match(await card.innerText(), /100%/);
+        assert.match(await card.innerText(), /100\.00%/);
         assert.match(await card.innerText(), lang === "en" ? /Reset time passed/ : /重置时间已过/);
         assert.doesNotMatch(await card.innerText(), /in 1m|1 分钟后|1分钟后/);
         assert(await reading.evaluate((e) => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== "ellipsis"), "the visible warning is not clipped");
@@ -107,7 +109,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         quota.windows[0].used = 25;
         quota.windows[0].resetsAt = new Date(Date.now() + 36e5).toISOString();
         await open();
-        await page.waitForFunction((selector) => document.querySelector(selector)?.textContent.includes("25%"), surface === "panel" ? ".pq-card" : ".editor .acc.with-aq");
+        await page.waitForFunction((selector) => document.querySelector(selector)?.textContent.includes("25.00%"), surface === "panel" ? ".pq-card" : ".editor .acc.with-aq");
         assert.equal(await reading.count(), 0, "recovery clears the visible old-reading marker");
         assert.doesNotMatch(await card.innerText(), /Reset time passed|重置时间已过/);
         assert.deepEqual(errors, []);

@@ -26,7 +26,7 @@ git log --oneline HEAD..origin/main
   powershell -NoProfile -File scripts/dev/windows.ps1          # 默认打开用量页
   powershell -NoProfile -File scripts/dev/windows.ps1 -View routing
   ```
-  脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:3437`，独立网关端口 3436，不占用正式实例的 3425。
+  脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:3437`，独立网关端口 3436，不占用正式实例的网关端口（本机为 23425，见「验证与提交」一节）。
 - 修改敲定后再运行 `scripts/build/windows.ps1` 构建 exe 并安装（见下节）。
 - **旧 exe 一律删除不留档**：任何版本都能按 `build.json` 记录的源码版本从 Git 重建，归档 exe 只浪费磁盘（2026-10-09 已清理约 515 MB）。`scripts/build/windows.ps1` 现在直接删掉上一次的输出与 `rsrc_windows_*.syso`——它此前调用 `scripts/maintenance/archive.py` 归档，与这条规则相反，2026-10-14 改正。上游 Makefile 的各目标仍用 `archive.py`（上游约定，本机不用那些目标）。
 - `dist/` 只放当前有效产物；验证日志和审阅截图确认后及时清理，不长期堆积。
@@ -81,7 +81,20 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 
 代码检查和浏览器回归方式分别见[代码标准](../code-standards.md)与[GUI 测试说明](../../internal/gui/tests/README.md)。字体、主题、布局和品牌改动按各自行为验证并分开提交；仅移动图片或修改文档时，检查本地引用和构建入口即可。
 
-本机程序可通过 `http://127.0.0.1:3425/api/hello` 核对实际运行的版本，`/v1/models` 检查模型目录。检查本身不需要发送模型生成请求。
+本机程序可通过 `http://127.0.0.1:23425/api/hello` 核对实际运行的版本，`/v1/models` 检查模型目录。检查本身不需要发送模型生成请求。
+
+**本机的网关端口是 23425，不是默认的 3425**（2026-10-14 改，见下）。默认端口在
+`internal/settings` 的 `DefaultPort`；本机用 `~/.config/magpie/settings.json` 的 `port` 覆盖。
+
+换端口的原因：Windows 把 3425 划进了为 Hyper-V/WSL（`winnat`）保留的区间 `3390-3489`
+（`netsh interface ipv4 show excludedportrange protocol=tcp`），**任何**程序 bind 它都返回
+`WSAEACCES 10013`（用 Python 的 `socket.bind` 独立复现过），magpie 因此每 15 秒重试失败一次，
+界面却报「端口 3425 被其他程序占用：请退出它」——**这条文案是误导的**，端口上没有进程。
+23425 落在动态端口范围 `1024-15000` **之外**，`winnat` 不会预占，可长期使用。
+
+**换端口要同时改已接好的 agent 配置**：magpie 只重写 dsh 的 profile（每次启动都写），
+**不会**重指向其它已接好的 agent。本机当时改了 `~/.codex/config.toml`（3 处）与
+`~/.claude/mix/settings.json`（1 处）里的 `127.0.0.1:3425`。
 
 ### 本机浏览器回归的基线（2026-10-14 实测）
 
@@ -94,21 +107,26 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 未安装的自带浏览器并报 “Please run … npx playwright install”。这类漏改会凭空造出一批
 假失败——**判断失败前先确认它不是这个原因**。
 
-本机必然失败的 8 个文件、72 项（其余 616 项通过）：
+本机必然失败的 8 个文件、72 项（其余 616 项通过）——**这 72 项已于 2026-10-14 晚逐个查明并修完**，
+下面是当时的清单和各自的真实原因，留作以后判断"这算不算我的回归"的参照：
 
-| 文件 | 失败项 |
-| --- | --- |
-| `routing-key-windows` | 18 |
-| `usage-ledger` | 11 |
-| `fonts` | 8 |
-| `segs-press-redraw` | 8 |
-| `sessions-today` | 8 |
-| `header-centre` | 7 |
-| `quota-reading-again` | 6 |
-| `claude-usage-asked` | 6 |
+| 文件 | 当时失败 | 真实原因 | 修法 |
+| --- | --- | --- | --- |
+| `fonts` | 8 | **不是产品问题**：用例用 `[["chromium",chromium],["webkit",webkit]].filter(...)` 这种写法，`BROWSER` 只过滤不替换，本机没装 WebKit 就全失败 | 跑时设 `BROWSER=chromium`；仓库无需改 |
+| `routing-key-windows` | 18 | 显示文案的百分比是两位小数（`10.00%`），期望还是一位（`10%`） | 改期望，不动进度条宽度断言 |
+| `usage-ledger` | 11 | 三件事：表头 `Requested`→`Model`、`Provider · account`→`Provider`；筛选项移进可折叠的 `<details id="ledTools">`；筛选按钮被视图底部的 `.foot` 裁掉一半，裸 `.click()` 点的是几何中心 | 改表头期望；点前先展开 `#ledTools`；改用本文件自带的 `reader.cjs` 的 `click()`（真滚轮滚进视野再点） |
+| `sessions-today` | 8 | `fmtN` 用 `dp2` 出两位小数（`2.20M`），期望一位（`2.2M`） | 改期望 |
+| `claude-usage-asked` | 6 | 等 `textContent.includes("25%")`，实际是 `25.00%`（`"25.00%".includes("25%")` 为假） | 改期望为 `25.00%` |
+| `quota-reading-again` | 6 | 同上（等 `40%`/`100%`） | 改期望 |
+| `segs-press-redraw` | 8 | **用例自己写错**：要求 `done.size >= 49`，而页面只有 46 个控件——在写下该下限的提交 `700315df` 上实测当时也只有 46、也失败 8/8 | 下限降到 40（它只是"扫到了页面"的哨兵，控件本身另有断言） |
+| `header-centre` | 7 | **唯一真实缺陷**：inrow 布局下左留白比右多 8px（`.top` 左右 padding 相同，但标签右侧还有行内 `gap: 8px`），超出用例 6.5px 容差 | 改产品代码 `app.css`：inrow 时左 padding 取行内 gap |
+
+其中 `routing-key-windows`、`usage-ledger`、`sessions-today`、`claude-usage-asked`、`quota-reading-again`
+五项同出一个提交 `cb4c71a4`（2026-10-10「数字与金额精度统一」）：它改了显示精度与用量账本表头，
+同步更新了 12 个测试文件，**漏了这 5 个**，于是这 49 项从那天起一直红着。
 
 判因方法：在修复前的提交 `f28c341f` 上建 `git worktree` 跑同一批文件，**逐项结果完全相同**
-（如 `fonts` 8/8、`sessions-today` 0/8 两边一致），所以这 72 项是环境缺口、不是回归。
+（如 `fonts` 8/8、`sessions-today` 0/8 两边一致），所以这 72 项是环境缺口与过时期望、不是那时改动的回归。
 这 8 个文件在本机从未跑绿过；改动后出现失败时先按这张表对照，别当成自己的改动造成的。
 
 进度按项目规则立即记录并单独提交；超过条目或行数上限时，再以独立提交归档完整旧条目。目前远端推送地址为 `no_push`，日常整理保存为本地提交。

@@ -101,14 +101,16 @@ function server(lang, theme, asked) {
 const L = {
   en: {
     tabs: ["Overview", "Requests", "Sessions", "Context"],
-    cols: ["Time", "Agent", "Requested", "Provider · account", "Sent", "Served", "Effort", "In", "Out", "Cache write", "Cache read", "Cost", "Duration", "Speed", "Status"],
+    // cb4c71a4 split the asked-for model from its provider into columns of
+    // their own: Requested → Model, Provider · account → Provider
+    cols: ["Time", "Agent", "Model", "Provider", "Sent", "Served", "Effort", "In", "Out", "Cache write", "Cache read", "Cost", "Duration", "Speed", "Status"],
     sum: "130 requests", pager: "1–100 of 130", older: "Older", newer: "Newer", failed: "Failed", export: "Export CSV",
     why: "The vendor was asked for gpt-6-sol, but its reply says gpt-6-luna answered",saved: "Saved 130 requests to ~/Downloads/magpie-requests-30d-2026-09-29.csv",
     none: "No requests match these filters.", bad: "Failed: the agent was answered 429", via: "Codex · via office-mac",
   },
   zh: {
     tabs: ["概览", "请求", "会话", "上下文"],
-    cols: ["时间", "Agent", "请求模型", "供应商 · 账号", "发送模型", "实际模型", "推理强度", "输入", "输出", "缓存写入", "缓存读取", "费用", "耗时", "速度", "状态"],
+    cols: ["时间", "Agent", "模型", "供应商", "发送模型", "实际模型", "推理强度", "输入", "输出", "缓存写入", "缓存读取", "费用", "耗时", "速度", "状态"],
     sum: "130 个请求", pager: "第 1–100 条，共 130 条", older: "较早", newer: "较新", failed: "失败", export: "导出 CSV",
     why: null, saved: "已将 130 个请求保存到 ~/Downloads/magpie-requests-30d-2026-09-29.csv",
     none: "没有符合这些筛选条件的请求。", bad: "失败：Agent 收到的是 429", via: "Codex · 来自 office-mac",
@@ -155,6 +157,15 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert(asked.length && want(asked.at(-1)), "asked: " + (asked.at(-1) || ""));
       await page.waitForTimeout(150);
     };
+    // The Requests tab keeps its filters in "Filters and details", a <details>
+    // the page opens by itself only once one is picked (cb4c71a4). A closed
+    // one leaves its buttons laid out but not visible, so a test reaching for
+    // one opens it first — and leaves it alone when a filter already has.
+    const openTools = async (page) => {
+      const tools = page.locator("#ledTools");
+      if (!(await tools.evaluate((e) => e.open))) await tools.locator(" > summary").click();
+      await page.waitForFunction(() => document.querySelector("#ledTools")?.open === true);
+    };
 
     for (const lang of ["en", "zh"]) {
       const w = L[lang];
@@ -183,7 +194,11 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
           });
           await tab.locator("#period .opt").nth(2).click();
           await lastAsked(tab, asked, q => q.get("period") === "30d");
-          await tab.locator(key === "agent" ? "#ledAgent" : "#ledProvider").click();
+          await openTools(tab);
+          // a raw .click() aims at the control's middle, which the view's foot
+          // clips when the filters have just been opened: reader.click brings
+          // it wholly into sight with real wheel input first
+          await click(tab, tab.locator(key === "agent" ? "#ledAgent" : "#ledProvider"));
           await tab.locator(".sess-menu .pm-item", { hasText: name }).click();
           await lastAsked(tab, asked, q => q.get(key) === removed);
           await tab.locator("#period .opt").nth(1).click();
@@ -197,7 +212,8 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await t.test(lang + ": an unavailable caller filter is cleared", async () => {
         const asked = [];
         const { page: tab, errors } = await open(lang, "light", asked);
-        await tab.locator("#ledKey").click();
+        await openTools(tab);
+        await click(tab, tab.locator("#ledKey"));
         await tab.locator(".sess-menu .pm-item", { hasText: "Laptop" }).click();
         await lastAsked(tab, asked, q => q.get("callerKey") === "laptop");
         await tab.route("**/api/usage/requests?**", async (route) => {
@@ -292,6 +308,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         // back up: the filters ask the server
         for (let i = 0; i < 200 && (await scrolled(page)) > 0; i++) { await page.mouse.wheel(0, -400); await page.waitForTimeout(10); }
         await page.waitForTimeout(100);
+        await openTools(page);
         await click(page, page.locator("#ledStatus .opt", { hasText: w.failed }));
         await lastAsked(page, asked, (q) => q.get("failed") === "1" && q.get("offset") === "0");
         await page.waitForFunction(() => document.querySelectorAll(".led tbody tr").length === 1);
@@ -300,6 +317,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         await click(page, page.locator("#ledStatus .opt").first());
         await lastAsked(page, asked, (q) => !q.has("failed"));
 
+        await openTools(page);
         await click(page, page.locator("#ledAgent"));
         await page.locator(".sess-menu .pm-item", { hasText: "Claude Code" }).click();
         await lastAsked(page, asked, (q) => q.get("agent") === "claude");
@@ -397,7 +415,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         });
         await lastAsked(page, asked, q=>q.get("route") === "123" && !q.has("callerKey"));
         assert.equal(await page.locator(".led tbody tr").count(), 2, "the previous caller filter must not hide this route");
-        await page.locator("#ledKey").click();
+        // opening a route leaves a filter set, so the page has opened the tools
+        // itself; the control still needs bringing into sight before a click
+        await click(page, page.locator("#ledKey"));
         await page.locator(".sess-menu .pm-item", { hasText: "Laptop" }).click();
         await lastAsked(page, asked, q=>q.get("route") === "123" && q.get("callerKey") === "laptop");
         await page.locator("#ledExport").click();

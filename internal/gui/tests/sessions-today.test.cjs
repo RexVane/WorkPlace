@@ -58,8 +58,10 @@ function serve(lang, reads) {
 }
 
 const want = {
-  en: { day: new Date(today + "T12:00:00Z").toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" }), tokens: (n) => `${(1.1 * n).toFixed(1).replace(/\.0$/, "")}M tokens`, output: "Output tokens" },
-  zh: { day: new Date(today + "T12:00:00Z").toLocaleDateString("zh-CN", { month: "short", day: "numeric", timeZone: "UTC" }), tokens: (n) => `${(1.1 * n).toFixed(1).replace(/\.0$/, "")}M token`, output: "输出 Token" },
+  // fmtN shortens a count with two decimals (dp2, cb4c71a4 unified the page's
+  // numbers on it), so 1.1n reads as 2.20M rather than 2.2M
+  en: { day: new Date(today + "T12:00:00Z").toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" }), tokens: (n) => `${(1.1 * n).toFixed(2)}M tokens`, output: "Output tokens" },
+  zh: { day: new Date(today + "T12:00:00Z").toLocaleDateString("zh-CN", { month: "short", day: "numeric", timeZone: "UTC" }), tokens: (n) => `${(1.1 * n).toFixed(2)}M token`, output: "输出 Token" },
 };
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {

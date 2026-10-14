@@ -58,9 +58,11 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         await page.goto(surface === "panel" ? "http://magpie.test/?mode=panel" : "http://magpie.test/?view=usage");
         if (surface === "panel") await page.locator('button[data-ptab="usage"]').click();
         const card = surface === "panel" ? ".pq-card" : ".subscription-card";
-        await page.waitForFunction((s) => document.querySelector(s)?.textContent.includes("40%"), card);
+        // a quota's percent carries two decimals (dp2, cb4c71a4 unified the
+        // page's numbers on it): 40% reads as 40.00%, 100% as 100.00%
+        await page.waitForFunction((s) => document.querySelector(s)?.textContent.includes("40.00%"), card);
         // no click, no focus: the new reading comes by itself
-        await page.waitForFunction((s) => document.querySelector(s)?.textContent.includes("100%"), card);
+        await page.waitForFunction((s) => document.querySelector(s)?.textContent.includes("100.00%"), card);
         const after = read.asks;
         await page.waitForTimeout(2500);
         assert.equal(read.asks, after, "once the new reading is in, nothing more is asked");
@@ -78,7 +80,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await page.route("**/*", serve(lang, read));
       await page.goto("http://magpie.test/?mode=panel");
       await page.locator('button[data-ptab="usage"]').click();
-      await page.waitForFunction(() => document.querySelector(".pq-card")?.textContent.includes("40%"));
+      await page.waitForFunction(() => document.querySelector(".pq-card")?.textContent.includes("40.00%"));
       const first = read.asks;
       for (let i = 0; i < 40; i++) { await page.clock.runFor(1500); await page.waitForTimeout(30); }
       const asked = read.asks - first;

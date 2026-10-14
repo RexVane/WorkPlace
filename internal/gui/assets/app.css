@@ -250,6 +250,12 @@ body.panel .seg { display: none; }
 .top.tight .update { width: 22px; padding: 0; justify-content: center; margin-right: 4px; }
 body.window .top.inrow .seg { position: relative; left: auto; top: auto; transform: none; margin: 0 auto; } /* relative still: its thumb sits in it, not over the whole header */
 body.window .top.inrow .actions { margin-left: 0; }
+/* the tabs sit as far from the window's edge as from the buttons (#442): the
+   header's padding is the same either side, and what the tabs' own `0 auto`
+   margins leave on their right also holds the row's 8px gap before the
+   buttons — so on the left the padding is that gap. Without this the left
+   space was 8px the wider (the gap) and header-centre.test.cjs measured it. */
+body.window:not(.mac):not(.linux) .top.inrow { padding-left: 8px; }
 .top.cramped .seg button { padding: 0 8px; }
 .top.crowded .seg button { padding: 0 6px; font-size: 12px; }
 .top.crowded .brand { display: none; }
