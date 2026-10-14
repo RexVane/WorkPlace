@@ -24,7 +24,13 @@ func TestNewer(t *testing.T) {
 }
 
 func TestReleased(t *testing.T) {
-	for v, want := range map[string]bool{"0.1.0": true, "v1.2.3": true, "dev": false, "0bcb2cc-dirty": false, "v0.1.0-3-g0bcb2cc": false} {
+	// a WorkPlace build names its commit and marks -dirty only when the tree
+	// really has changes (scripts/build/windows.ps1): neither shape is a
+	// release, so a local build still never replaces itself with one
+	for v, want := range map[string]bool{
+		"0.1.0": true, "v1.2.3": true, "dev": false, "0bcb2cc-dirty": false, "v0.1.0-3-g0bcb2cc": false,
+		"0bcb2cc-workplace": false, "0bcb2cc-workplace-dirty": false,
+	} {
 		if Released(v) != want {
 			t.Errorf("Released(%q) != %v", v, want)
 		}

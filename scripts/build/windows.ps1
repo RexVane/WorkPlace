@@ -19,7 +19,15 @@ try {
     foreach ($command in @('go', 'git', 'python')) { Get-Command $command -ErrorAction Stop | Out-Null }
     $workplaceCommit = (git rev-parse --short HEAD).Trim()
     if ($LASTEXITCODE -ne 0 -or $workplaceCommit -notmatch '^[0-9a-f]+$') { throw 'Cannot read the source revision.' }
-    $workplaceVersion = $workplaceCommit + '-workplace-dirty'
+    # The version says what it is: the commit, and -dirty only when the tree
+    # really has uncommitted changes. It used to carry -dirty always, which
+    # told the reader a fact nobody had checked and left a clean build from a
+    # commit indistinguishable from one with edits in it. The "-workplace" part
+    # is what keeps this a build from source for internal/update's Released:
+    # a version that isn't three dot-separated numbers is never a release, so
+    # this build still never replaces itself with an upstream release.
+    $workplaceDirty = if ((git status --porcelain)) { '-dirty' } else { '' }
+    $workplaceVersion = $workplaceCommit + '-workplace' + $workplaceDirty
     $workplaceOutput = 'dist/workplace-windows-' + $Architecture
 
     if ($RefreshIcons) {

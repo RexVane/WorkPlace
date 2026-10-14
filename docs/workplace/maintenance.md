@@ -43,7 +43,7 @@ powershell -NoProfile -File scripts/build/windows.ps1
 
 ARM64 输出可加 `-Architecture arm64`。这只构建程序；安装是独立操作。安装前核对路径与运行进程，关闭应用，将旧 exe 保留到项目 `backups/`，再替换并核验网关和窗口。
 
-本地版本始终采用 `<commit>-workplace-dirty`，继续使用项目对源码构建的更新规则，避免自动安装上游发行版覆盖本地修改。命令、数据目录、登录状态和 `magpie://` 导入协议沿用兼容标识。
+本地版本采用 `<commit>-workplace`,工作区有未提交改动时再加 `-dirty`(即 `<commit>-workplace-dirty`);两种形态都继续使用项目对源码构建的更新规则,避免自动安装上游发行版覆盖本地修改——`internal/update` 的 `Released` 只认三段点分数字的版本，`-workplace` 让本地构建永远不是发行版。命令、数据目录、登录状态和 `magpie://` 导入协议沿用兼容标识。
 
 ## 更新图标
 
