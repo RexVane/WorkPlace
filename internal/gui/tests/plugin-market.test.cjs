@@ -127,7 +127,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         // Subscriptions has it, as its last row
         await page.goto("http://magpie.test/?view=providers");
         await page.locator("#addProvider").waitFor();
-        assert.equal(await page.locator("#view-providers .after-list .more-subs").count(), 0);
+        // the providers list has no button of its own (the add sheet's row
+        // leads there): what stood here named .more-subs, a class that no
+        // longer exists, so it could never fail — the list's own one entry does
+        assert.equal(await page.locator("#view-providers .after-list button").count(), 1, "only its Add provider entry");
         await page.locator("#addProvider").click();
         const row = page.locator("#addSheet .tile.more-plugins");
         await row.waitFor();

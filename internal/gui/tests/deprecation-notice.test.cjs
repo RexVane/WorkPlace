@@ -81,7 +81,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
           return {
             bg: cs.backgroundColor, listBg: list.backgroundColor, border: cs.borderTopColor, listBorder: list.borderTopColor,
             leftBorder: cs.borderLeftWidth === cs.borderTopWidth && cs.borderLeftColor === cs.borderTopColor,
-            badges: n.querySelectorAll(".badge").length, tiles: n.querySelectorAll(".dep-ic, svg").length, primary: n.querySelectorAll(".primary").length,
+            // .dep-ic was in this selector too, but the app never gave an
+            // element that class: only the svg half of it ever matched
+            badges: n.querySelectorAll(".badge").length, tiles: n.querySelectorAll("svg").length, primary: n.querySelectorAll(".primary").length,
             dot: dot ? getComputedStyle(dot).backgroundColor : null, amber: getComputedStyle(document.body).getPropertyValue("--amber").trim(),
             head: { top: head.top, bottom: head.bottom, right: head.right }, box: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, btns,
             wide: document.documentElement.scrollWidth > innerWidth, text: n.innerText,

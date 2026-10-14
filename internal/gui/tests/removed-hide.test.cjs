@@ -72,7 +72,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
           const row = sheet.locator(`.tile[data-pick="removed:gemini"]`);
           await row.waitFor();
           await sheet.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
-          assert.equal(await sheet.locator(".kind-more").count(), 0, "no Show N hidden link");
+          // what the sheet says is what is checked: the line that used to stand
+          // here named a class (.kind-more) that no longer exists anywhere, so
+          // it could never fail — the sheet's own words catch it instead
           assert.doesNotMatch(await sheet.innerText(), w.hide, "nothing offers to hide it");
           assert.deepEqual((await row.locator("button").allInnerTexts()).map((s) => s.trim()), [w.back, w.out]);
           assert.equal(await page.locator("select").count(), 0);

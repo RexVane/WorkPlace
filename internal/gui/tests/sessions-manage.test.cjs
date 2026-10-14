@@ -247,8 +247,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const hermes = view.locator('.row.sm-sess[data-id="h-1"]');
       await hermes.waitFor();
       assert.equal((await view.locator(".sm-note").textContent()).trim(), w.hermesNote);
-      assert.equal(await hermes.locator(".sm-resume, .sess-resume, .sess-term, .sm-del, .sm-check").count(), 0);
-      assert.equal(await view.locator(".sm-folder-del").count(), 0);
+      // the classes that do exist carry this: a Hermes session offers none of
+      // them (.sm-resume was in the list but is named nowhere in the app)
+      assert.equal(await hermes.locator(".sess-resume, .sess-term, .sm-del, .sm-check").count(), 0);
       assert(!(await view.locator(".sm-bar").isVisible()));
       assert.equal(calls.length, mutationCount, "viewing Hermes sessions sends no mutation");
       if (process.env.SCREENSHOT_DIR) {

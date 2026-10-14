@@ -167,7 +167,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
         assert(first, "the box comes first in the row");
       }
       assert.equal(await box("old-blog").getAttribute("aria-label"), w.label);
-      assert.equal(await view.locator(".sm-folder-del").count(), 0, "no Delete all beside the box");
+      // a folder row holds its fold control alone — no Delete all beside the
+      // box. What stood here named .sm-folder-del, a class the app no longer
+      // has, so it could never fail; the row's own buttons say it instead
+      assert.equal(await folder("old-blog").locator("button").count(), 1, "no Delete all beside the box");
 
       // a folded folder ticked picks its two, the bar counting sessions;
       // its own Delete asks naming the folder; Cancel posts nothing

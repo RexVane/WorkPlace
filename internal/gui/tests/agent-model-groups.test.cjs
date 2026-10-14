@@ -1,8 +1,15 @@
 // Run with Node's test runner and Playwright on the module path; see README.md.
-// A routing group in an agent's model list shows its providers' icons
-// stacked, as it does in the pickers and on the Routing page — not a maker's
-// logo, nor the fan — and the names beside groups of 1 to 4 providers still
-// start in one column.
+// A routing group in an agent's model list leads each of its own models with
+// **that model's provider's mark**, and the names still start in one column:
+// the marks of four providers, and of one that carries none, begin at the same
+// left and stay inside their rows.
+//
+// The group is read in the two steps the list works in (see
+// agent-routing-sheet.test.cjs): the rail lists every routing group, and
+// picking one shows its own models on the right. It used to draw a group as a
+// row of its own, with its providers' icons stacked in a 56px slot
+// (e1fd75de); a2e2044c moved the groups to the rail and gave each member row
+// its own provider's mark instead, which is what this checks now.
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
@@ -10,12 +17,19 @@ const { test } = require("node:test");
 const { chromium, webkit } = require("playwright");
 
 const assets = path.resolve(__dirname, "../assets");
+const GROUP = "group/wide";
+// four providers' models, one of them carrying no mark of its own
+const members = [
+  { id: "openai/m1", name: "wide-1", provider: "OpenAI", icon: "openai" },
+  { id: "anthropic/m1", name: "wide-2", provider: "Anthropic", icon: "anthropic" },
+  { id: "xai/m1", name: "wide-3", provider: "xAI", icon: "xai" },
+  { id: "bare/m1", name: "wide-4", provider: "Bare" },
+];
 const models = [
-  { id: "group/wide", name: "wide", group: "Routing groups", icons: ["openai", "anthropic", "deepseek-color", "xai"] },
-  { id: "group/pair", name: "GPT-6 Sol", group: "Routing groups", icons: ["openai", "anthropic"] },
-  { id: "group/solo", name: "solo", group: "Routing groups", icons: ["anthropic"] },
-  { id: "group/bare", name: "bare", group: "Routing groups" },
+  { id: "group/wide", name: "wide", group: "Routing groups", icons: ["openai", "anthropic", "xai"] },
   { id: "openai/gpt-6", name: "GPT-6", group: "OpenAI", icon: "openai", logo: "openai", context: 1e6, inUse: true },
+  // a third source: the rail is only drawn with more than two of them
+  { id: "xai/grok-9", name: "Grok 9", group: "xAI", icon: "xai", logo: "xai", context: 2e6 },
 ];
 
 async function serve(route) {
@@ -32,6 +46,15 @@ async function serve(route) {
     profiles: [], settings: { lang: "en", theme: "light" },
   });
   if (url.pathname === "/api/agent-models/codex") return json({ models });
+  // the group is off for this agent: its models are readable all the same
+  if (url.pathname === "/api/agent-scope/codex") return json({
+    scope: {
+      agent: "codex", names: [], hidden: [],
+      all: [{ name: GROUP, kind: "group", label: "wide", entries: members.length }],
+      models: [{ id: GROUP, models: members }],
+    },
+    used: { shown: models.length, catalog: models.length + members.length, names: 0 },
+  });
   if (url.pathname === "/api/groups") return json({ groups: [] });
   if (url.pathname === "/api/providers") return json({ providers: [], gateway: { running: true, window: true } });
   if (url.pathname.startsWith("/api/")) return json({});
@@ -41,7 +64,7 @@ async function serve(route) {
 }
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
-  test(`${engine}: routing groups in an agent's model list show their providers' icons`, async (t) => {
+  test(`${engine}: a routing group's models lead with their own providers' marks`, async (t) => {
     const browser = await (engine === "webkit" ? webkit.launch() : chromium.launch({ channel: "chromium" }));
     const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
     page.setDefaultTimeout(5000);
@@ -60,42 +83,48 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
     await page.locator('.row.agent[data-id="codex"] .ag-exp .ag-chips .ag-quiet').click();
     const pop = page.locator(".am-pop:not(.leaving)");
     await pop.waitFor();
-    const row = (name) => pop.locator(".am-mr", { hasText: name });
 
-    const icons = (name) => row(name).evaluate((r) => {
-      const lg = r.querySelector(".lg");
-      return {
-        stack: lg.classList.contains("ic-stack"),
-        discs: [...lg.querySelectorAll(".disc > .ic")].map((e) => e.dataset.icon),
-        more: lg.querySelector(".more")?.textContent || "",
-        own: lg.dataset.icon || "",
-        fan: !!lg.querySelector(":scope > svg"),
-      };
-    });
-    assert.deepEqual(await icons("wide"), { stack: true, discs: ["openai", "anthropic", "deepseek-color"], more: "+1", own: "", fan: false });
-    // named after a model, but routed over two providers: theirs, not OpenAI's logo alone
-    assert.deepEqual(await icons("GPT-6 Sol"), { stack: true, discs: ["openai", "anthropic"], more: "", own: "", fan: false });
-    assert.deepEqual(await icons("solo"), { stack: true, discs: ["anthropic"], more: "", own: "", fan: false });
-    assert.deepEqual(await icons("bare"), { stack: false, discs: [], more: "", own: "", fan: true });
-    // a model keeps its maker's logo
-    assert.equal(await row("GPT-6").last().locator(".lg").getAttribute("data-icon"), "openai");
+    // the rail lists the group; picking it shows its own models
+    const rail = pop.locator(".am-ri").filter({ has: page.locator(".lib-switch") }).first();
+    await rail.click();
+    await pop.locator(".am-g.routes .am-mr").first().waitFor();
 
-    // the names start in one column, clear of the widest stack, and the
-    // stack sits inside its row
+    // each member leads with its own provider's mark — not the group's stack,
+    // not a maker's logo, and the one with none draws an empty slot. The slot
+    // is the icon element itself (modelRow adds .lg to what icon() gives).
+    const marks = await pop.locator(".am-g.routes .am-mr").evaluateAll((rs) => rs.map((r) => ({
+      name: r.querySelector(".n")?.innerText.replace(/\n/g, " "),
+      icon: r.querySelector(".lg")?.dataset.icon ?? null,
+      stack: !!r.querySelector(".lg.ic-stack"),
+      fan: !!r.querySelector(".lg > svg"),
+    })));
+    assert.deepEqual(marks, [
+      { name: "OpenAI wide-1", icon: "openai", stack: false, fan: false },
+      { name: "Anthropic wide-2", icon: "anthropic", stack: false, fan: false },
+      { name: "xAI wide-3", icon: "xai", stack: false, fan: false },
+      { name: "Bare wide-4", icon: null, stack: false, fan: false },
+    ]);
+
+    // the names start in one column, every mark begins at the row's left, and
+    // both stay inside their rows
     const boxes = await pop.locator(".am-g.routes .am-mr").evaluateAll((rs) => rs.map((r) => {
       const b = r.getBoundingClientRect(), lg = r.querySelector(".lg").getBoundingClientRect(), n = r.querySelector(".n").getBoundingClientRect();
-      // what's drawn, not the slot: the first disc, the icon, the fan
-      const mark = (r.querySelector(".lg .disc, .lg > svg, .lg > img") || r.querySelector(".lg")).getBoundingClientRect();
-      return { top: b.top, bottom: b.bottom, lgTop: lg.top, lgBottom: lg.bottom, lgRight: lg.right, n: n.left, mark: mark.left };
+      // what's drawn begins where the slot does: the slot is the mark
+      return { top: b.top, bottom: b.bottom, lgTop: lg.top, lgBottom: lg.bottom, lgRight: lg.right, n: n.left, mark: lg.left };
     }));
     assert.equal(boxes.length, 4);
     assert.equal(new Set(boxes.map((b) => Math.round(b.n))).size, 1, JSON.stringify(boxes));
-    // and every group's icons start at the row's left, a lone one too
     assert(Math.max(...boxes.map((b) => b.mark)) - Math.min(...boxes.map((b) => b.mark)) <= 2, JSON.stringify(boxes));
     for (const b of boxes) {
       assert(b.lgRight <= b.n, JSON.stringify(b));
       assert(b.lgTop >= b.top && b.lgBottom <= b.bottom, JSON.stringify(b));
     }
+
+    // a provider's own model still keeps its maker's logo: back to the whole list
+    await pop.locator(".am-ri").first().click();
+    await pop.locator(".am-g:not(.routes) .am-mr").first().waitFor();
+    assert.equal(await pop.locator(".am-mr", { hasText: "GPT-6" }).last().locator(".lg").getAttribute("data-icon"), "openai");
+
     assert.deepEqual(errors, []);
   });
 }

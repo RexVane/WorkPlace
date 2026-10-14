@@ -110,7 +110,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await card("Mine").locator("input").check();
       await page.waitForFunction((s) => document.querySelector(".rt-gsel .note").textContent === s, w.picked);
       assert.equal(await bar.locator("input").evaluate((x) => x.indeterminate), true);
-      assert.equal(await page.locator(".rt-groups .rt-editor, .rt-groups .rt-gedit").count(), 0, "a click on a card doesn't open its editor");
+      // the classes the app has carry this (.rt-editor was in the list but is
+      // named nowhere in the app, so half the selector matched nothing)
+      assert.equal(await page.locator(".rt-groups .rt-gedit").count(), 0, "a click on a card doesn't open its editor");
 
       await rm.click();
       const confirm = page.getByRole("alertdialog");

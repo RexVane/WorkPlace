@@ -136,9 +136,11 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       // the scope read is what fills the rail's groups; wait for it
       await pop.locator(".am-railhead").first().waitFor();
 
-      // the toolbar is All / Shown / Hidden alone: no Order, no Scope button
+      // the toolbar is All / Shown / Hidden alone: no Order, no Scope button.
+      // The segments are asserted whole, so a Scope or Order button coming back
+      // is caught here; the old ".am-scope is absent" line checked a class the
+      // routing button was given and no longer exists, so it could never fail.
       assert.deepEqual(await pop.locator(".am-seg button").allInnerTexts(), w.seg);
-      assert.equal(await pop.locator(".am-scope").count(), 0, "the routing button is gone");
       assert.equal(await pop.locator(".am-search").isVisible(), true);
 
       // the rail holds the routing groups first, then the providers
