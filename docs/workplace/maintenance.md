@@ -83,4 +83,32 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 
 本机程序可通过 `http://127.0.0.1:3425/api/hello` 核对实际运行的版本，`/v1/models` 检查模型目录。检查本身不需要发送模型生成请求。
 
+### 本机浏览器回归的基线（2026-10-14 实测）
+
+本机没有 Playwright 自带的 Chromium/WebKit，只有系统 Chrome，跑法是把用例里的
+`channel: "chromium"` 改成 `"chrome"`、引擎列表收成 `["chromium"]`（`node_modules` 是
+`npm install playwright --no-save` 装的，未进 git）。
+
+**去掉 `channel` 的写法要一并改**：`chromium.launch()` 之外还有 `chromium.launch({ ignoreDefaultArgs: … })`
+这类带参数的调用（如 `routing-idle-frame.test.cjs` 的 `routingPage` 助手），漏改的会去启动
+未安装的自带浏览器并报 “Please run … npx playwright install”。这类漏改会凭空造出一批
+假失败——**判断失败前先确认它不是这个原因**。
+
+本机必然失败的 8 个文件、72 项（其余 616 项通过）：
+
+| 文件 | 失败项 |
+| --- | --- |
+| `routing-key-windows` | 18 |
+| `usage-ledger` | 11 |
+| `fonts` | 8 |
+| `segs-press-redraw` | 8 |
+| `sessions-today` | 8 |
+| `header-centre` | 7 |
+| `quota-reading-again` | 6 |
+| `claude-usage-asked` | 6 |
+
+判因方法：在修复前的提交 `f28c341f` 上建 `git worktree` 跑同一批文件，**逐项结果完全相同**
+（如 `fonts` 8/8、`sessions-today` 0/8 两边一致），所以这 72 项是环境缺口、不是回归。
+这 8 个文件在本机从未跑绿过；改动后出现失败时先按这张表对照，别当成自己的改动造成的。
+
 进度按项目规则立即记录并单独提交；超过条目或行数上限时，再以独立提交归档完整旧条目。目前远端推送地址为 `no_push`，日常整理保存为本地提交。
