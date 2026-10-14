@@ -92,8 +92,18 @@ function fixture(lang) {
 }
 
 const W = {
-  en: { seg: ["All", "Shown", "Hidden"], routes: "Routing groups", providers: "Providers", note: /^This routing group is off for Codex/ },
-  zh: { seg: ["全部", "已显示", "已隐藏"], routes: "路由组", providers: "供应商", note: /^这个路由组对 Codex 是关着的/ },
+  en: {
+    seg: ["All", "Shown", "Hidden"], routes: "Routing groups", providers: "Providers",
+    note: /^This routing group is off for Codex/,
+    hint: /^Each of these is its provider's own model, not a copy: taking one out hides it from Codex's list everywhere, and the group still routes through it\.$/,
+    rowHint: /^relay\/m1 — Relay's own model: taking it out hides it from Codex's list everywhere, and the group still routes through it$/,
+  },
+  zh: {
+    seg: ["全部", "已显示", "已隐藏"], routes: "路由组", providers: "供应商",
+    note: /^这个路由组对 Codex 是关着的/,
+    hint: /^这里每个成员都是它供应商自己的模型，不是副本：取消勾选会让它从 Codex 的列表里各处消失，但路由组仍然会走它。$/,
+    rowHint: /^relay\/m1 —— Relay 自己的模型：取消勾选会让它从 Codex 的列表里各处消失，但路由组仍然会走它$/,
+  },
 };
 
 for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium", "webkit"])) {
@@ -143,6 +153,12 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       await fast.click();
       await page.waitForTimeout(200);
       assert.match(await pop.locator(".am-note").innerText(), w.note);
+      // what a tick under the group does is said before it is ticked: a
+      // member is its provider's own model, the same entry, so taking it out
+      // hides that model from the agent everywhere while the group still
+      // routes through it. Unlike the note above it stays once the group is
+      // on — the ticks are what it is about, and they are usable either way
+      assert.match(await pop.locator(".am-hint").innerText(), w.hint);
       assert.deepEqual(await pop.locator(".am-mr .n").allInnerTexts(), ["Relay\nM1", "Relay\nM2"]);
       assert.equal(await pop.locator('.am-mr[aria-checked="true"]').count(), 2);
       // each row leads with whose model it is, its provider's own mark in the
@@ -150,6 +166,8 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       // a glance — not only by reading the source name
       assert.deepEqual(await pop.locator(".am-mr .lg[data-icon]").evaluateAll((es) => es.map((e) => e.dataset.icon)),
         ["openai", "anthropic"], "a member row carries its provider's mark");
+      // and the row itself says the same on hover, where the tick is
+      assert.match(await pop.locator(".am-mr").first().getAttribute("title"), w.rowHint);
 
       // switching it on lets the agent go through it: the group joins the
       // list, and the note goes
@@ -158,6 +176,7 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.deepEqual(fx.on(), ["group/fast"]);
       assert.equal(await fast.locator(".lib-switch.on").count(), 1);
       assert.equal(await pop.locator(".am-note").count(), 0, "the note goes once it is on");
+      assert.match(await pop.locator(".am-hint").innerText(), w.hint, "the hint stays: it is about the ticks");
 
       // and a tick under the group hides that model for this agent alone
       await pop.locator(".am-mr").first().click();

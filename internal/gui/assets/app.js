@@ -2540,7 +2540,11 @@ async function openAgentModels(a, anchor, ev) {
     r.type = "button";
     r.setAttribute("role", "menuitemcheckbox");
     r.setAttribute("aria-checked", String(!m.hidden));
-    r.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name }) : m.id;
+    // a group's member row: taking it out hides the provider's own model of
+    // it too (the same entry), so the tick's meaning is spelled out on hover
+    r.title = m.inUse ? t("{agent} is set to it, so it stays", { agent: a.name })
+      : inGroup ? t("{id} — {provider}'s own model: taking it out hides it from {agent}'s list everywhere, and the group still routes through it", { id: m.id, provider: m.provider || m.id, agent: a.name })
+        : m.id;
     // whose model it is first, then the name: a group's members often carry
     // the same name from several providers, and the source is what tells
     // them apart, so it leads. The name in a span of its own, so a narrow
@@ -2605,6 +2609,12 @@ async function openAgentModels(a, anchor, ev) {
       sec.append(gh);
       const body = el("div", "am-rows");
       if (!on) body.append(el("div", "am-note", t("This routing group is off for {agent}: switch it on in the list on the left to let {agent} go through it.", { agent: a.name })));
+      // A member is the provider's own model, the same entry, not a copy of
+      // it: the tick here is the per-model switch itself (settings'
+      // HiddenModels), so taking one out takes it out of {agent}'s list
+      // everywhere — its provider's own rows too — while the group goes on
+      // routing through it. Said before the reader ticks, not after.
+      body.append(el("div", "am-hint", t("Each of these is its provider's own model, not a copy: taking one out hides it from {agent}'s list everywhere, and the group still routes through it.", { agent: a.name })));
       for (const m of rows) body.append(modelRow(m, true));
       if (!rows.length) body.append(el("div", "am-none", t("No matches.")));
       sec.append(body);

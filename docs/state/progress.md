@@ -331,3 +331,17 @@
 - 影响文件：`internal/sessions/stats.go`、`internal/sessions/stats_test.go`（新增用例与 `sum` 辅助）、`internal/gui/assets/app.js`、`internal/gui/assets/i18n.js`（2 条 ×4 语）。
 - 核验脚本与原始输出留在 `dist/verify-numbers-20261014/`（已被 `dist/` 忽略，未进 git）。
 - 下一步：会话形态卡的文案要等浏览器套件能跑时补一条断言（现在无法运行）；其余 agent（codex/dsh/grok 等）的会话解析只验了接口自洽，没有像 Claude 那样逐文件复算。
+- 2026-10-14 12:35 | #003 | 界面 | 路由组成员行的勾选含义写在界面上:勾掉一个成员会连同它供应商自己那一行一起隐藏,组仍照旧路由它 | deepseek-v4.1-flash
+- 前因:用户以为「开组后成员默认全不勾」,实测是**默认全勾**(打开组开关只写 `GroupsOn`,不写 `HiddenModels`,对隐藏集为空的 Agent 即成员全进来);用户随后明确要的是「开组后成员默认不显示,免得一堆模型挤进 Codex」。查 `agent-wiring.md:43-44` 与实测确认:「路由」(`GroupsOn`)与「显示」(`HiddenModels`)本就是两层,但**成员的条目 id 与该供应商自己的模型是同一条**,勾掉成员会连供应商那一行一起隐藏(组仍照旧路由它)。用户权衡后选择**先不改功能,只在界面上把这个副作用讲清楚**。
+- 改了什么:
+  - `app.js` 成员区新增一行 `.am-hint`(组开着也在,与组关着才出现的 `.am-note` 并列):「这里每个成员都是它供应商自己的模型,不是副本:取消勾选会让它从 {agent} 的列表里各处消失,但路由组仍然会走它。」
+  - 成员行 `title` 在组内上下文中说同一件事,带上真实 id 与供应商名(如 `liwanlab/deepseek-v4.1-flash —— LiwanLab 自己的模型:…`);`inUse` 那一条保持原样。
+  - `app.css`:`.am-hint` 比 `.am-note` 更轻(11px/`--faint`);并修掉我插入时打断的相邻选择器 `.am-note + .am-mr`,改为 `.am-note + .am-mr, .am-hint + .am-mr`(否则首行成员少 4px 上边距)。
+  - `i18n.js`:2 条 ×4 语(zh/zh-TW/ja/de),占位符与英文逐一对齐。
+  - `agent-routing-sheet.test.cjs`:补断言——提示存在且措辞正确、**开组后仍在**(这点与 `.am-note` 相反),以及成员行 `title`。
+- 验证:
+  - **本机首次跑通浏览器套件**:`npm install playwright@1.64.0` + 系统 Chrome(`channel: "chrome"`,本机无 Playwright 自带 chromium)。`agent-routing-sheet`(中英)、`agent-models`(中英)、`routing-groups-off`(中英)、`i18n-keys` **全通过**;`agent-routing-sheet` 在**撤掉提示后以真实失败告终**(等待 `.am-hint` 超时),恢复后通过。
+  - 真实界面截图核对(`dist/verify-numbers-20261014/ui-hint-dsh.png`,测试版 3437、agent=dsh、组=DeepSeek V4.1 Flash 7/7):提示与各行 `title` 渲染正确、四语文案齐全。
+  - `go build ./...`、`go vet -tags production ./...` 通过;`node --check` 两个前端文件通过。
+  - **未修(既有,与本次无关)**:`agent-model-groups.test.cjs` 在 HEAD 上就失败——它按旧 UI 直接在列表里读组行,而 `a2e2044c` 把路由组搬进左栏且只改了另外两个测试文件,漏改它(已用其父提交 `1aa6fc4e` + 当时资源跑通、用 HEAD 资源复现同样超时来归因)。另发现用户 `settings.json` 的 `hiddenModels` 有失效项:`dsh` 的 `liwanlab/DeepSeek-V4.1-Flash` 大小写与实际 id `liwanlab/deepseek-v4.1-flash` 不符;`codex`/`pi` 的 4 条所指模型已不在目录。均未改动,待用户决定。
+- 影响文件:`internal/gui/assets/app.js`、`internal/gui/assets/app.css`、`internal/gui/assets/i18n.js`、`internal/gui/tests/agent-routing-sheet.test.cjs`、`docs/state/progress.md`。
