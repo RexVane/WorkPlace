@@ -345,3 +345,13 @@
   - `go build ./...`、`go vet -tags production ./...` 通过;`node --check` 两个前端文件通过。
   - **未修(既有,与本次无关)**:`agent-model-groups.test.cjs` 在 HEAD 上就失败——它按旧 UI 直接在列表里读组行,而 `a2e2044c` 把路由组搬进左栏且只改了另外两个测试文件,漏改它(已用其父提交 `1aa6fc4e` + 当时资源跑通、用 HEAD 资源复现同样超时来归因)。另发现用户 `settings.json` 的 `hiddenModels` 有失效项:`dsh` 的 `liwanlab/DeepSeek-V4.1-Flash` 大小写与实际 id `liwanlab/deepseek-v4.1-flash` 不符;`codex`/`pi` 的 4 条所指模型已不在目录。均未改动,待用户决定。
 - 影响文件:`internal/gui/assets/app.js`、`internal/gui/assets/app.css`、`internal/gui/assets/i18n.js`、`internal/gui/tests/agent-routing-sheet.test.cjs`、`docs/state/progress.md`。
+- 2026-10-14 13:00 | #004 | 发布 | 推送 GitHub、重编并装入正式版 d2ceefa1、清掉 297 MB 旧物(数据与配置不动) | deepseek-v4.1-flash
+- 做了什么:
+  - **推送**:`git push fork rexvane-workplace`,`17dcc9a2..d2ceefa1`(#002、#003 两个提交),本地与 `fork/rexvane-workplace` 一致。
+  - **重编正式版**:`scripts/build/windows.ps1` → `dist/workplace-windows-amd64/magpie.exe`,版本 `d2ceefa1-workplace-dirty`,SHA256 `9769300F…8EEC`。
+  - **装入**:停掉旧正式版(PID 62072),覆盖 `%LOCALAPPDATA%\Programs\magpie\magpie.exe`,**源与目标 SHA256 逐位一致**;重启后窗口标题 WorkPlace、`Responding=True`,网关 `http://127.0.0.1:3425/` 自述版本 `d2ceefa1-workplace-dirty`、44 个模型。
+  - **两处修复确认在二进制里**:`of {total} sessions` 与 `Only the sessions that reported it`(#002)都能在 exe 中检索到;3425 的 UI 是 Wails 原生窗口(该端口只服务网关 API,故 `/app.js` 返回 404 属正常)。
+  - **清理 297.0 MB**:删 `dist/` 下 9 个历次构建/核验临时目录、`verify-numbers-20261014` 里可再生的副本(冻结 exe、frozen/、旧版资源对照、价格快照)、旧正式版 exe 的两份拷贝(同一提交 `a7862bb7`,可由 git 重编)。删前逐项 `Resolve-Path` 验证落在仓库内且不含 `.config`/`.cache`。
+- **保留**:`dist/verify-numbers-20261014` 的脚本与文本/图片证据(61 文件 0.7 MB)、`dist/workplace-windows-amd64`(当前构建 44.5 MB);`~/.config/magpie`(8.9 MB)与 `~/.cache/magpie`(191.8 MB)**原样未动**;桌面快捷方式仍指向正确目标。
+- **有意未删**:`backups/branding`、`workplace-candidates` 等 38 MB——核对后发现 73/74、63/63、88/88 个文件**不在 git 里**,是 WorkPlace 图标的设计原始素材,删掉不可恢复。移除明细记在 `backups/INDEX.md`。
+- 影响文件:`backups/INDEX.md`、`docs/state/progress.md`(构建与安装本身不产生源码改动)。
