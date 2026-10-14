@@ -232,15 +232,13 @@ type scopeModelJSON struct {
 	Icon  string `json:"icon,omitempty"`
 }
 
-// scopeUsed is how much of an agent's catalog its range keeps, for the
-// line the sheet says under the title.
-type scopeUsed struct {
-	// Shown is the models the agent is shown.
-	Shown int `json:"shown"`
-	// Catalog is every model magpie has.
-	Catalog int `json:"catalog"`
-	// Names is how many routing groups are switched on for it.
-	Names int `json:"names"`
+// scopeOf is an agent's range sheet: the routing groups it may go through and
+// which of each one's models it is shown (see agentScope). It used to answer
+// how much of the catalog the range keeps as well, for a line the sheet said
+// under its title — the sheet is gone (the rail holds the groups now, see
+// openAgentModels in app.js) and nothing ever read that line again.
+func scopeOf(a *agent.Agent) scopeJSON {
+	return agentScope(a)
 }
 
 func agentScope(a *agent.Agent) scopeJSON {
@@ -310,14 +308,6 @@ func usedIn(vals map[string]string, e provider.Entry) bool {
 	return false
 }
 
-// scopeOf is an agent's range sheet and how much of the catalog it keeps.
-func scopeOf(a *agent.Agent) (scopeJSON, scopeUsed) {
-	shown, _ := provider.CatalogFor(a.ListsFor())
-	used := scopeUsed{Shown: len(shown), Catalog: len(provider.Catalog()),
-		Names: len(provider.GroupsOn(a.ListsFor()))}
-	return agentScope(a), used
-}
-
 func agentScopeAPI(mux *http.ServeMux) {
 	// routing-groups-off turns every routing group off for every agent at
 	// once: each one goes on its own provider's models and on no group
@@ -339,8 +329,7 @@ func agentScopeAPI(mux *http.ServeMux) {
 			fail(rw, err)
 			return
 		}
-		scope, used := scopeOf(a)
-		writeJSON(rw, map[string]any{"scope": scope, "used": used})
+		writeJSON(rw, map[string]any{"scope": scopeOf(a)})
 	})
 	// on switches one routing group on or off for this agent alone. That
 	// agent's own list is drawn from what comes back
@@ -375,8 +364,7 @@ func agentScopeAPI(mux *http.ServeMux) {
 			fail(rw, err)
 			return
 		}
-		scope, used := scopeOf(a)
-		writeJSON(rw, map[string]any{"scope": scope, "used": used,
+		writeJSON(rw, map[string]any{"scope": scopeOf(a),
 			"models": agentModelList(a), "count": modelCount(lists)})
 	})
 }

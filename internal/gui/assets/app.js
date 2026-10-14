@@ -2391,7 +2391,7 @@ async function openAgentModels(a, anchor, ev) {
   const setScope = (r) => {
     const cur = r.scope || {};
     scopeData = { names: cur.names || [], all: cur.all || scopeData?.all || [],
-      models: cur.models || scopeData?.models || [], hidden: cur.hidden || [], used: r.used };
+      models: cur.models || scopeData?.models || [], hidden: cur.hidden || [] };
     groupsOn = new Set((cur.names || []).map((n) => String(n).toLowerCase()));
   };
   const loadScope = async () => {

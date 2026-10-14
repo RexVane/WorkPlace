@@ -47,9 +47,9 @@ func TestAgentScopeAPI(t *testing.T) {
 			Models []scopeGroupJSON
 			Hidden []string
 		}
-		Used struct {
-			Shown, Catalog, Names int
-		}
+		// the answer used to carry a "used" object (how much of the catalog
+		// the range keeps) for a line the sheet said under its title: the
+		// sheet is gone and nothing read it, so it went with it
 		Models []agentModelJSON
 		Count  *modelCountJSON
 	}
@@ -85,16 +85,16 @@ func TestAgentScopeAPI(t *testing.T) {
 	if !slices.Contains(offered, "group/fast") || !slices.Contains(offered, "group/slow") {
 		t.Fatalf("the groups offered: %v", offered)
 	}
-	if got.Used.Names != 0 || got.Used.Shown != 2 {
-		t.Fatalf("before any switch: %+v", got.Used)
-	}
+	// the two facts the removed "used" object carried are asserted through
+	// what the page really reads: the agent has no group on (above), and its
+	// list holds its own provider's models with no group among them (below)
 	if shown, _ := provider.CatalogFor("codex"); slices.ContainsFunc(shown, func(e provider.Entry) bool { return e.Group != "" }) {
 		t.Fatalf("a group is in the list with nothing switched on: %v", shown)
 	}
 
 	// one switched on: it and its models join the agent's list
 	got = call("POST", "codex", `{"id":"group/fast","on":true}`)
-	if !slices.Equal(got.Scope.Names, []string{"group/fast"}) || got.Used.Names != 1 {
+	if !slices.Equal(got.Scope.Names, []string{"group/fast"}) {
 		t.Fatalf("the sheet after a switch: %+v", got.Scope)
 	}
 	if ids := modelIDs(got.Models); !slices.Contains(ids, "group/fast") {
