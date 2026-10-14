@@ -355,3 +355,16 @@
 - **保留**:`dist/verify-numbers-20261014` 的脚本与文本/图片证据(61 文件 0.7 MB)、`dist/workplace-windows-amd64`(当前构建 44.5 MB);`~/.config/magpie`(8.9 MB)与 `~/.cache/magpie`(191.8 MB)**原样未动**;桌面快捷方式仍指向正确目标。
 - **有意未删**:`backups/branding`、`workplace-candidates` 等 38 MB——核对后发现 73/74、63/63、88/88 个文件**不在 git 里**,是 WorkPlace 图标的设计原始素材,删掉不可恢复。移除明细记在 `backups/INDEX.md`。
 - 影响文件:`backups/INDEX.md`、`docs/state/progress.md`(构建与安装本身不产生源码改动)。
+- 2026-10-14 13:35 | #005 | 配置 | 修好 dsh 那条大小写不符的隐藏模型 id(它一直没生效) | deepseek-v4.1-flash
+- 问题:dsh 的 `settings.hiddenModels` 写的是 `liwanlab/DeepSeek-V4.1-Flash`,而目录里的真实 id 是 `liwanlab/deepseek-v4.1-flash`。`HiddenModels` 按条目 id 精确匹配(`visible.go:199` 的 `off[e.ID]`),所以这条**从未生效**——界面上该成员一直打着勾(截图 7/7)。
+- **纠正我上一轮的错误结论**:当时据 `providers.json` 判定 codex/pi 那 4 条也「失效」,是**假阴性**——内置 preset 供应商的模型不落在 `providers.json`(`models` 为 null),该文件不是全量目录。改用 `/api/providers`(会把 preset 模型一并算出,含已关闭的 provider)重查:那 4 条**全部正确**,只是对应 provider 当前关着(条目休眠),其中 codex 的 `deepseek/deepseek-v4-pro`、pi 的 3 条都无需改动。真正错的只有 dsh 这 1 条。
+- 怎么改:走**应用自己的写入路径** `POST /api/agent-scope/dsh`(`agent_models.go:352` → `provider.SetHiddenModels`),而不是手改 JSON——避免重新格式化坏文件(备份索引里就有过一次这样的教训),并且同一次写入会按设计同步更新 Agent 的配置文件。
+- 改前留底:`~/.agents/backups/.config/magpie/settings-20261014-131729.json`(已记入该 INDEX)。
+- 验证:
+  - `/api/state` 的 dsh 计数 **shown 45 → 44**,listed 仍 45(差的 1 个就是被隐藏的);`/api/agent-scope/dsh` 里该成员 `hidden: true`,`LiwanLab` 也从 `models.by` 分组统计里消失。
+  - **落盘核对**:第 44 行由 `liwanlab/DeepSeek-V4.1-Flash` 变为 `liwanlab/deepseek-v4.1-flash`,前后文件均 1213 字节,SHA256 由 `11FE78D6…` 变为 `3BF9E665…`。
+  - **Agent 配置文件同步**:dsh 的 `~/.dsh/profiles/web/cordis.patch.yml` 于 13:30 更新,已不含 `liwanlab/deepseek-v4.1-flash`,`clinepass/cline-pass/deepseek-v4.1-flash` 仍在。
+  - **界面截图**:`dist/verify-numbers-20261014/ui-hidden-fixed.png`——左栏 `6 / 7`(原 7/7),LiwanLab 行取消勾选并变灰,顶部 `44/45`。
+  - **无全局副作用**:网关 `/v1/models` 44 个模型里该条目**仍然在**,只有 dsh 隐藏它。
+  - 其余两位 agent 未受影响(codex shown 44、pi shown 45,均无隐藏)。
+- 另:排查中我一度以为网关清单丢了该模型,实为**我自己 PowerShell 脚本的陷阱**——`@(...) | Where-Object {...}` 只匹配 1 条时会被解包成单个对象,`.Count` 取到 `$null` 而判成 False;已复现并证伪,产品无问题。
