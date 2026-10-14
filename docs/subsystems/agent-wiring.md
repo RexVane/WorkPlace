@@ -62,7 +62,8 @@ go test -tags nogui ./internal/agent -run 'TestConnect|TestDisconnect|Drift|Test
 go test -tags nogui ./internal/agent
 go test -tags nogui ./internal/agent -run '^TestAir'
 go test -tags nogui ./internal/agent -run '^TestAnte'
-go test -tags nogui ./internal/provider -run 'TestSetVisible|TestScopeNames|TestRetired|TestDeprecatedBy|TestHiddenModels'
+go test -tags nogui ./internal/provider -run 'TestSetVisible|TestScopeNames|TestRetired|TestHiddenModels'
+go test -tags nogui ./internal/catalog -run '^TestDeprecatedBy$'
 go test -tags nogui ./internal/gui -run '^TestAgentScopeAPI$|^TestRoutingGroupsOffEverywhere$'
 node --test internal/gui/tests/agent-connect.test.cjs internal/gui/tests/agent-disconnect-preview.test.cjs internal/gui/tests/claude-signin.test.cjs internal/gui/tests/agent-routing-sheet.test.cjs
 ```

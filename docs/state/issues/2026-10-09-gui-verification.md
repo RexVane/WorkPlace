@@ -2,6 +2,13 @@
 
 范围为 `D:\AIApp\magpie` 的两页交付整合。本文是本地跟踪记录，未创建远端 issue。
 
+> **证据目录已于 2026-10-14 清理**（用户要求「旧的没用的都可以清」）。下表与第 37、52 行引用的
+> `dist/verification-20261009-1638/`、`dist/verify-tabs-20261009/`、`dist/routing-icon-verify/`、
+> `backups/ui-baseline-20261009-1647/`、`backups/archive-20261009-172427-824256/` 均已删除，
+> 且它们不在 git 里，**无法再核对**。下表保留的是当时记录的结果，不是现在可以复查的证据；
+> 需要复核请重跑当时的用例，清单见本目录与 `internal/gui/tests/README.md`。删除明细在
+> `backups/INDEX.md`。
+
 ## 已验证的页面改动
 
 | 检查 | 结果 | 本地日志（相对项目根） |

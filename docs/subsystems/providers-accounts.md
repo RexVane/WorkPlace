@@ -59,7 +59,8 @@ keys and accounts per request is in [Gateway routing and fallback](gateway-routi
 ## Verification
 
 ```sh
-go test -tags nogui ./internal/provider -run 'TestAccount|TestCodex|TestGroup|TestQuota|TestLogin|TestSignIn|TestSeveralKeys|TestKeyProtocol|TestSetKeyWeight|TestReadSub2APIKeyLimits|TestSub2APIKeyLimitsOnItsCard|TestKeyAllowance|TestPlanKeyAllowance|TestPayAsYouGoKeyAskedSeldom|TestClaudeAccountToldRenewed|TestPluginAccountToldRenewed'
+go test -tags nogui ./internal/provider -run 'TestAccount|TestCodex|TestGroup|TestQuota|TestLogin|TestSignIn|TestSeveralKeys|TestKeyProtocol|TestReadSub2APIKeyLimits|TestSub2APIKeyLimitsOnItsCard|TestKeyAllowance|TestPlanKeyAllowance|TestPayAsYouGoKeyAskedSeldom|TestClaudeAccountToldRenewed|TestPluginAccountToldRenewed'
+go test -tags nogui ./internal/gateway -run '^TestSetKeyWeight$'
 go test -tags nogui ./internal/provider -run 'TestVolcengine|TestQianfan|TestBedrock'
 go test -tags nogui ./internal/provider
 ```

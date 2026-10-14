@@ -228,8 +228,10 @@ cause:
   second (a `.bad-<second>` name) and failed on Linux CI (237d216b). Test a
   name made from time.Now() across a second boundary.
 - Before fixing a red CI run, `git log origin/main` for a commit that names
-  that run or test. 85fd35ab and e34e53a1 fixed the same lost tail in two
-  sessions at once.
+  that run or test: 85fd35ab is one, naming CI run 37415124103 and the test it
+  broke. This line used to name a second commit, e34e53a1, which no revision
+  in this repository is; a hash a reader can't resolve is worse than one fewer
+  example, so it is gone.
 - 10-07: 07e246e5 named 24 GUI failures as "the same on origin/main". Run
   alone on main, all 8 of their files pass, and so do the two the full run
   failed (api-key-theme, fold-show-grip). They fail only under the full run,
