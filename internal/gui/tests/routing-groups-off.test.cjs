@@ -77,7 +77,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const off = lead.locator(".ag-nogroups");
       await off.waitFor();
       assert.equal(await off.innerText(), w.off);
-      await page.screenshot({ path: "C:/Users/guica/AppData/Local/Temp/dsh-lead-off.png" });
+      if (process.env.ARTIFACT_DIR) {
+        await fs.mkdir(process.env.ARTIFACT_DIR, { recursive: true });
+        await page.screenshot({ path: path.join(process.env.ARTIFACT_DIR, `${engine}-lead-off.png`) });
+      }
       await off.click();
       await page.waitForFunction(() => document.querySelector(".ag-nogroups") === null, null, { timeout: 5000 });
       assert.equal(fx.posts(), 1);
