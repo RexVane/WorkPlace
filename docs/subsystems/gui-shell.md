@@ -125,8 +125,10 @@ suite and the Safari compatibility scan include files in these directories.
 ### Windows source development
 
 [`scripts/dev/windows.ps1`](../../scripts/dev/windows.ps1) runs `go run -tags
-dev . app usage` from this checkout, using gateway port 3436 and browser
-preview port 3437 by default. The native window reads `internal/gui/assets`
+dev . app usage` from this checkout, using gateway port 23436 and browser
+preview port 23437 by default (above the dynamic port range: Windows keeps
+ranges of ports for Hyper-V, WSL and Docker, and a bind inside one fails as a
+permission failure). The native window reads `internal/gui/assets`
 on each request and reloads on save. Go's temporary development executable
 is not an installed or packaged release. A Go change requires restarting
 this command; page edits need no rebuild.

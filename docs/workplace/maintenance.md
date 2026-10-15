@@ -26,7 +26,7 @@ git log --oneline HEAD..origin/main
   powershell -NoProfile -File scripts/dev/windows.ps1          # 默认打开用量页
   powershell -NoProfile -File scripts/dev/windows.ps1 -View routing
   ```
-  脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:3437`，独立网关端口 3436，不占用正式实例的网关端口（本机为 23425，见「验证与提交」一节）。
+  脚本以 `go run -tags dev` 启动，页面文件保存即重载；页面预览在 `http://127.0.0.1:23437`，独立网关端口 23436，不占用正式实例的网关端口（本机为 23425，见「验证与提交」一节）。默认端口在脚本的 `$GatewayPort` / `$UIPort` 里，可覆盖。
 - 修改敲定后再运行 `scripts/build/windows.ps1` 构建 exe 并安装（见下节）。
 - **旧 exe 一律删除不留档**：任何版本都能按 `build.json` 记录的源码版本从 Git 重建，归档 exe 只浪费磁盘（2026-10-09 已清理约 515 MB）。`scripts/build/windows.ps1` 现在直接删掉上一次的输出与 `rsrc_windows_*.syso`——它此前调用 `scripts/maintenance/archive.py` 归档，与这条规则相反，2026-10-14 改正。上游 Makefile 的各目标仍用 `archive.py`（上游约定，本机不用那些目标）。
 - `dist/` 只放当前有效产物；验证日志和审阅截图确认后及时清理，不长期堆积。
@@ -91,11 +91,19 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 `WSAEACCES 10013`（用 Python 的 `socket.bind` 独立复现过），magpie 因此每 15 秒重试失败一次。
 23425 落在动态端口范围 `1024-15000` **之外**，`winnat` 不会预占，可长期使用。
 
-**同一个保留区间也盖住了开发用的 3436/3437**（`dev ui: listen tcp 127.0.0.1:3437: bind … forbidden`），
-所以本机的 `scripts/dev/windows.ps1` 要显式给范围外的端口，例如
-`-GatewayPort 23436 -UIPort 23437`。先跑一次
-`netsh interface ipv4 show excludedportrange protocol=tcp` 看当前保留了哪些区间——它每次
-`winnat` 重启或开机都可能重排。
+**同一个保留区间也盖住了原来开发用的 3436/3437**（`dev ui: listen tcp 127.0.0.1:3437: bind … forbidden`），
+**这两个端口不再使用**：`scripts/dev/windows.ps1` 的默认值已改成 `23436`（网关）与 `23437`（预览页），
+都在动态端口范围之外，不会被预占。要换别的端口就用 `-GatewayPort` / `-UIPort`；先跑一次
+`netsh interface ipv4 show excludedportrange protocol=tcp` 看当前保留了哪些区间。
+
+**注意这段区间是会变的，不要把它当成 3425 的"永久属性"**：2026-10-15 白天再测，
+3425/3426/3427/3436/3437 又都能 bind 了（`socket.bind` 全部成功）——机器过夜重启后 `winnat`
+把区间重划到了别处。所以「3425 现在能用」不代表明天还能用；落在 `1024-15000` 里的端口
+**任何一次开机都可能被收走**。这也是正式版留在 23425、开发版挪到 23436/23437 的理由：
+它们在动态范围之外，`winnat` 不从那一段里预占。
+
+判据一句话：`netsh interface ipv4 show excludedportrange protocol=tcp` 列出的区间里，
+**bind 会以权限失败（WSAEACCES 10013）告终**；区间外的端口正常。
 
 **magpie 现在会自己把已接好的 agent 搬到新地址**（2026-10-14 加）。它把上次写进 agent 的地址
 记在 `settings.json` 的 `wiredAddr` 里；下次启动时若当前地址与它不同，就只在 **magpie 自己编辑的
