@@ -5314,6 +5314,10 @@ function gatewayFixSays(o) {
     case "taken": return p.pid
       ? t("Port {port} is in use by {path} (pid {pid}): quit it, or move the gateway to another port in Settings.", p)
       : t("Port {port} is in use by another program: quit it, or move the gateway to another port in Settings.", p);
+    // nothing has the port: Windows keeps ranges of them for Hyper-V, WSL and
+    // Docker, and a bind inside one fails as a permission failure, so naming
+    // a program to quit would send the user looking for one that isn't there
+    case "reserved": return t("Port {port} is reserved by the system (Windows keeps ranges of ports for Hyper-V, WSL and Docker), so no program can listen on it: pick another port in Settings. {error}", p);
     case "other": return t("magpie {v} serves the gateway, and it isn't older than this one: quit it there to serve the gateway here.", p);
   }
   return t("The gateway couldn't be served here: {error}", p);

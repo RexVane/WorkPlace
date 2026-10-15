@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/gateway"
 	"github.com/yetone/magpie/internal/provider"
+	"github.com/yetone/magpie/internal/settings"
 	"github.com/yetone/magpie/internal/update"
 )
 
@@ -40,6 +42,7 @@ func startBackend() (gw *gateway.Server) {
 	gateway.Window = true // the routing this process serves is shown on its page
 	gw = serveGateway()
 	go watchGateway(backendCtx, gatewayWatch)
+	go repointWiredAgents()
 	// Model lists are fetched, never compiled in: whatever the agents can see
 	// comes from the models.dev catalog plus each vendor's own /models answer.
 	// Keep both halves warm without making the user click anything.
@@ -65,6 +68,34 @@ func startBackend() (gw *gateway.Server) {
 
 // gatewayWatch is how often a magpie without the gateway looks for it gone.
 const gatewayWatch = 15 * time.Second
+
+// repointWiredAgents moves the agents magpie has wired onto the gateway
+// address this magpie serves, when it differs from the one magpie last wrote
+// there. A port changed in Settings, or one Windows has taken out of reach
+// since (a Hyper-V, WSL or Docker reservation), otherwise leaves every agent
+// calling an address that answers nothing, until each is connected again by
+// hand. Only the installed magpie does it: one run beside it (magpie-dev, a
+// sandbox) leaves the agents to the installed one, as the drift checks do.
+func repointWiredAgents() {
+	now := gateway.URL()
+	s := settings.Load()
+	if s.WiredAddr == now || now != gateway.SavedURL() {
+		return
+	}
+	if s.WiredAddr != "" {
+		moved, trouble := agent.Repoint(s.WiredAddr, now)
+		if len(moved) > 0 {
+			log.Printf("gateway: %d agent config(s) moved from %s to %s: %s", len(moved), s.WiredAddr, now, strings.Join(moved, ", "))
+		}
+		for path, err := range trouble {
+			log.Printf("gateway: couldn't move %s from %s to %s: %v", path, s.WiredAddr, now, err)
+		}
+	}
+	s.WiredAddr = now
+	if err := settings.Save(s); err != nil {
+		log.Println("gateway: couldn't remember the wired address:", err)
+	}
+}
 
 // watchGateway takes the gateway up once the magpie that had it is gone,
 // looking every so often until ctx ends: a watch that outlived it would

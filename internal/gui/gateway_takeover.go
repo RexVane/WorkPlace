@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/yetone/magpie/internal/gateway"
@@ -32,7 +33,10 @@ type gatewayFixJSON struct {
 	// "denied" (a magpie this user may not end), "stuck" (it didn't end),
 	// "respawned" (something started a magpie on the port again at once:
 	// a LaunchAgent, a systemd unit, a scheduled task), "taken" (the
-	// gateway couldn't listen: another program has the port), "other"
+	// gateway couldn't listen: another program has the port), "reserved"
+	// (nothing has the port: the system keeps it out of reach — Windows'
+	// excluded ranges for Hyper-V, WSL and Docker — so only another port
+	// helps), "other"
 	// (a magpie not older than this one serves; quit it there), "error"
 	Reason  string `json:"reason,omitempty"`
 	PID     int    `json:"pid,omitempty"`
@@ -129,7 +133,37 @@ func startHere() gatewayFixJSON {
 			break
 		}
 	}
+	if out.PID == 0 {
+		// Nothing of this user's holds the port, so it isn't a program's to
+		// quit and "in use by another program" would name one that isn't
+		// there. Windows keeps ranges of ports out of every program's reach
+		// for Hyper-V, WSL and Docker (netsh interface ipv4 show
+		// excludedportrange protocol=tcp): a bind inside one fails as a
+		// permission failure, and only another port helps.
+		out.Error = gateway.LastListenError()
+		out.Reason = noHolderReason(out.Error)
+	}
 	return out
+}
+
+// noHolderReason is the reason to give when the gateway couldn't take its port
+// and nothing of this user's holds it: "reserved" when the system is keeping
+// it (only another port helps), "taken" otherwise.
+func noHolderReason(errText string) string {
+	if reservedSays(errText) {
+		return "reserved"
+	}
+	return "taken"
+}
+
+// reservedSays reports whether a failure to take a port is the system keeping
+// it rather than a program holding it: Windows refuses an excluded port with
+// WSAEACCES, "An attempt was made to access a socket in a way forbidden by its
+// access permissions", and Unix refuses a privileged or reserved one with
+// EACCES, "permission denied".
+func reservedSays(errText string) bool {
+	s := strings.ToLower(errText)
+	return strings.Contains(s, "permission") || strings.Contains(s, "forbidden") || strings.Contains(s, "access denied")
 }
 
 // quitMagpieOnPort ends the magpie (of version, as it says) listening on

@@ -148,3 +148,25 @@ func TestGatewayFixQuitsOnlyAMagpie(t *testing.T) {
 		t.Fatal("the gateway wasn't restarted")
 	}
 }
+
+// A gateway that can't take its port because the system keeps it out of every
+// program's reach — Windows' excluded ranges for Hyper-V, WSL and Docker —
+// must not be told as another program's: this machine's 3425 landed in one
+// (3390-3489), magpie said "Port 3425 is in use by another program: quit it",
+// and there was no program to quit and nothing on the port to find.
+func TestReservedPortIsSaidAsTheSystemsNotAPrograms(t *testing.T) {
+	for _, c := range []struct {
+		what, errText, want string
+	}{
+		{"Windows' excluded port (WSAEACCES)", "listen tcp 127.0.0.1:3425: bind: An attempt was made to access a socket in a way forbidden by its access permissions.", "reserved"},
+		{"a privileged port on Unix (EACCES)", "listen tcp 127.0.0.1:80: bind: permission denied", "reserved"},
+		// Windows words "already in use" with "normally permitted", which is
+		// not "permission": this one is another program's, and must stay so
+		{"another program's (WSAEADDRINUSE)", "listen tcp 127.0.0.1:3425: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.", "taken"},
+		{"nothing recorded", "", "taken"},
+	} {
+		if got := noHolderReason(c.errText); got != c.want {
+			t.Errorf("%s: noHolderReason(%q) = %q, want %q", c.what, c.errText, got, c.want)
+		}
+	}
+}

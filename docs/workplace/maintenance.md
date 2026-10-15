@@ -88,13 +88,26 @@ python -B scripts/maintenance/archive.py magpie magpie.exe magpie.app dist 'rsrc
 
 换端口的原因：Windows 把 3425 划进了为 Hyper-V/WSL（`winnat`）保留的区间 `3390-3489`
 （`netsh interface ipv4 show excludedportrange protocol=tcp`），**任何**程序 bind 它都返回
-`WSAEACCES 10013`（用 Python 的 `socket.bind` 独立复现过），magpie 因此每 15 秒重试失败一次，
-界面却报「端口 3425 被其他程序占用：请退出它」——**这条文案是误导的**，端口上没有进程。
+`WSAEACCES 10013`（用 Python 的 `socket.bind` 独立复现过），magpie 因此每 15 秒重试失败一次。
 23425 落在动态端口范围 `1024-15000` **之外**，`winnat` 不会预占，可长期使用。
 
-**换端口要同时改已接好的 agent 配置**：magpie 只重写 dsh 的 profile（每次启动都写），
-**不会**重指向其它已接好的 agent。本机当时改了 `~/.codex/config.toml`（3 处）与
-`~/.claude/mix/settings.json`（1 处）里的 `127.0.0.1:3425`。
+**同一个保留区间也盖住了开发用的 3436/3437**（`dev ui: listen tcp 127.0.0.1:3437: bind … forbidden`），
+所以本机的 `scripts/dev/windows.ps1` 要显式给范围外的端口，例如
+`-GatewayPort 23436 -UIPort 23437`。先跑一次
+`netsh interface ipv4 show excludedportrange protocol=tcp` 看当前保留了哪些区间——它每次
+`winnat` 重启或开机都可能重排。
+
+**magpie 现在会自己把已接好的 agent 搬到新地址**（2026-10-14 加）。它把上次写进 agent 的地址
+记在 `settings.json` 的 `wiredAddr` 里；下次启动时若当前地址与它不同，就只在 **magpie 自己编辑的
+那个配置文件**（`Agent.Path`）里把旧地址逐字节换成新地址（`agent.Repoint`），用户自己写的
+provider、注释、空行、行尾都不动。只有**正式实例**这么做：跑在旁边的测试版（`MAGPIE_ADDR`
+指向别的端口）不算，免得两个实例把 agent 改来改去。
+
+**界面的报错现在分得清两种情况**：端口上真有别的程序 → 「被其他程序占用：请退出它」；端口上
+**没有任何进程**而 bind 仍失败（系统保留区间）→ 「被系统保留（Windows 为 Hyper-V、WSL 和 Docker
+预留了成段的端口）：请在设置里换一个端口」，并附上系统原话。判定在
+`internal/gui/gateway_takeover.go` 的 `noHolderReason`，绑定错误由
+`internal/gateway` 的 `LastListenError` 记下。
 
 ### 本机浏览器回归的基线（2026-10-14 实测）
 

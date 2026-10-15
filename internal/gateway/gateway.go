@@ -42,6 +42,31 @@ import (
 // MAGPIE_ADDR says otherwise.
 const DefaultAddr = "127.0.0.1:3425"
 
+// lastListenErr is why the gateway last failed to take its port, or "" while
+// it has it. The app's Gateway page reads it when nothing of the user's holds
+// the port: Windows keeps ranges of ports for Hyper-V, WSL and Docker, and a
+// bind inside one fails as a permission failure, not as "in use" — the page
+// used to blame a program that wasn't there.
+var lastListenErr atomic.Pointer[string]
+
+// LastListenError is the last failure to take the gateway's port, "" if none.
+func LastListenError() string {
+	if p := lastListenErr.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+// noteListenErr records (or clears, with "") the last failure.
+func noteListenErr(err error) {
+	if err == nil {
+		lastListenErr.Store(nil)
+		return
+	}
+	msg := err.Error()
+	lastListenErr.Store(&msg)
+}
+
 // Token is the bearer token agents are told to use. The gateway only
 // listens on loopback and accepts anything, but agents insist on one.
 const Token = "magpie"
@@ -389,8 +414,10 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	migrateLANKeyBestEffort()
 	ln, err := Listen(listenAddr())
 	if err != nil {
+		noteListenErr(err)
 		return err
 	}
+	noteListenErr(nil)
 	s.lnMu.Lock()
 	s.ln = ln
 	s.lnMu.Unlock()

@@ -94,6 +94,13 @@ type Settings struct {
 	// Port is the gateway's port on this computer, 0 for DefaultPort.
 	// MAGPIE_ADDR, where it is set, comes first (GatewayAddr).
 	Port int `json:"port,omitempty"`
+	// WiredAddr is the gateway address magpie last wrote into the agents it
+	// has wired, e.g. http://127.0.0.1:23425. An address that has moved since
+	// — the port changed in Settings, or Windows keeps the old one out of
+	// reach — is put right in those configs at the next start (agent.Repoint),
+	// so a moved gateway doesn't leave every agent calling an address that
+	// answers nothing.
+	WiredAddr string `json:"wiredAddr,omitempty"`
 	// LANKeyID remembers the default named key created when sharing is enabled.
 	LANKeyID string `json:"lanKeyId,omitempty"`
 	// RequestArchive keeps each call the gateway serves — its headers and
