@@ -38,3 +38,4 @@
 | 2026-10-14 17:55 | backups/archive-20261014-172440-745325、archive-20261014-175124-646317(共 89.1 MB) | 两份 `build.json` 分别记明源码版本 `d2ceefa1` 与 `47812068`，两者都在 git 里，可按该提交重建 | 构建脚本每次编译自动归档的旧 exe（`magpie.exe` 各 44.5 MB，SHA256 分别以 `9769300F`、`A8B6880B` 开头）。用户确认「脚本改成删除旧 exe，并清掉现有 89 MB」；同一个提交把 `scripts/build/windows.ps1` 的归档改成删除，与文档「旧 exe 一律删除不留档」一致 |
 
 **保留**:`backups/INDEX.md`(git 跟踪)、以及 `go.mod`、`README.md`、`magpie-app-paths.reg`、`magpie-url-scheme.reg`、`Magpie.lnk`(共约 4 KB,是更早从工作区移出的记录,本身不占空间)。
+| 2026-10-15 12:36:25 | dist/verify-numbers-20261014/ 下的 suite/（647 文件 22.08 MB）、chrome-tests/（20 文件 0.21 MB）、commit-*.txt 与 commit-msg*.txt（13 个）、以及 suite-run.log、suite-final.log、dev-restart.log*、diag-5files.log、probe-*.log、release-*.out/.err（11 个，共约 1.1 MB） | 均可再生：suite/ 与 chrome-tests/ 是从 internal/gui/tests 复制并打补丁的副本，提交草稿已在 git 历史里，日志是那次运行的输出 | 用户要求「清理掉旧产物」；保留脚本、截图与两份基线日志（suite-clean.log 修复前、suite-clean2.log 现在）作证据，dist 70.4 MB -> 47 MB |

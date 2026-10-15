@@ -18,7 +18,7 @@ WorkPlace is this workspace's Windows customization of [Magpie](https://github.c
 powershell -NoProfile -File scripts/build/windows.ps1
 ```
 
-The executable and its build record are written to `dist/workplace-windows-amd64/`. The script preserves previous output under `backups/`, regenerates the Windows resources and verifies the WorkPlace product information. It builds a source version and leaves installation as a separate operation. See the [maintenance guide](docs/workplace/maintenance.md) for dependencies, icon updates and recovery.
+The executable and its build record are written to `dist/workplace-windows-amd64/`. The script removes the previous output rather than archiving it — any version can be rebuilt from the commit its `build.json` names — regenerates the Windows resources and verifies the WorkPlace product information. It builds a source version and leaves installation as a separate operation. See the [maintenance guide](docs/workplace/maintenance.md) for dependencies, icon updates and recovery.
 
 The installed application is named **WorkPlace**. The executable, CLI, configuration paths, gateway identity and `magpie://` protocol keep their compatible names. The gateway defaults to `127.0.0.1:3425`.
 

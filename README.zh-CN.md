@@ -18,7 +18,7 @@ WorkPlace 基于 [Magpie](https://github.com/yetone/magpie) 持续开发，将 A
 powershell -NoProfile -File scripts/build/windows.ps1
 ```
 
-程序与构建记录输出到 `dist/workplace-windows-amd64/`。脚本先将旧产物保留到 `backups/`，再生成 Windows 资源并核对 WorkPlace 产品信息，使用源码版本标记；安装是独立操作。依赖、图标更新和恢复方式见[维护指南](docs/workplace/maintenance.md)。
+程序与构建记录输出到 `dist/workplace-windows-amd64/`。脚本**直接删掉上一次的输出**（不归档：任何版本都能按 `build.json` 记录的提交重建），再生成 Windows 资源并核对 WorkPlace 产品信息，使用源码版本标记；安装是独立操作。依赖、图标更新和恢复方式见[维护指南](docs/workplace/maintenance.md)。
 
 应用显示名称为 **WorkPlace**。可执行文件、命令、配置目录、网关身份和 `magpie://` 协议保留兼容名称，网关默认地址为 `127.0.0.1:3425`。
 
